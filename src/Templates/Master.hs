@@ -54,9 +54,8 @@ masterPage =
   let page :: MonadApp m => WebPage (HtmlT m ()) T.Text
       page = def
   in  page { pageTitle = "Cooperate"
-           , afterStylesScripts = do
-               scriptAssets
-               elmScripts
+           , afterStylesScripts = scriptAssets
+           , bodyScripts = elmScripts
            , styles = do
                styleAssets
                lessStyles

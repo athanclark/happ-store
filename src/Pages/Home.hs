@@ -17,6 +17,4 @@ import Control.Monad.Trans
 
 homePage :: ( MonadApp m
             ) => HtmlT m ()
-homePage = do
-  homeLink <- T.pack <$> lift (locUrl =<< toLocation AppHome)
-  a_ [href_ homeLink] "Home page"
+homePage = return ()

@@ -79,7 +79,7 @@ instance ToPath AppResources Abs File where
   toPath JQueryCdn   = parseAbsFile "/ajax/libs/jquery/3.0.0-beta1/jquery"
   toPath SemanticJs  = parseAbsFile "/ajax/libs/semantic-ui/2.1.8/semantic"
   toPath SemanticCss = parseAbsFile "/ajax/libs/semantic-ui/2.1.8/semantic"
-  toPath LessStyles  = parseAbsFile "/styles"
+  toPath LessStyles  = parseAbsFile "/style"
   toPath AppFrontend = parseAbsFile "/App"
 
 instance ToLocation AppResources Abs File where
