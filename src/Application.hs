@@ -40,13 +40,15 @@ contentLayer = route routes
 
 staticLayer :: MonadApp m => MiddlewareT m
 staticLayer app req respond = do
-    let fileRequested = T.unpack . T.intercalate "/" $ pathInfo req
+    let fileRequested = T.unpack
+                      . T.intercalate "/"
+                      $ pathInfo req
     basePath <- envStatic <$> ask
     let file = basePath ++ "/" ++ fileRequested
     fileExists <- liftIO (doesFileExist file)
     if fileExists
-        then respond $ responseFile status200 [] file Nothing
-        else app req respond
+    then respond $ responseFile status200 [] file Nothing
+    else app req respond
 
 defApp :: Application
 defApp _ respond =

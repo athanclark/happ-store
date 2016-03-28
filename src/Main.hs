@@ -137,8 +137,12 @@ entry :: Int -> Env -> IO ()
 entry p env = do
   run p $ server' defApp
   where
-    server' = gzip def . logStdoutDev . runMiddlewareT runAppT' server
-    server  = securityLayer . staticLayer . contentLayer
+    server'  = gzip def
+             . logStdoutDev
+             . runMiddlewareT runAppT' server
+    server   = securityLayer
+             . staticLayer
+             . contentLayer
     runAppT' = flip runAppT env
 
 
