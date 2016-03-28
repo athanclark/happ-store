@@ -39,7 +39,7 @@ html :: ( MonadApp m
         ) => Maybe AppLinks
           -> HtmlT (AppTemplateT m) ()
           -> FileExtListenerT m ()
-html state content = htmlLight status200 $ mainTemplate state content
+html state content = htmlLight status200 (mainTemplate state content)
 
 
 -- * Templates
