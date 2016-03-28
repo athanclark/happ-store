@@ -1,0 +1,111 @@
+Name:                   compatable-opinions
+Version:                0.0.0
+Author:                 Athan Clark <athan.clark@gmail.com>
+Maintainer:             Athan Clark <athan.clark@gmail.com>
+License:                BSD3
+License-File:           LICENSE
+-- Synopsis:
+-- Description:
+Cabal-Version:          >= 1.10
+Build-Type:             Simple
+
+Library
+  Default-Language:     Haskell2010
+  HS-Source-Dirs:       src
+  GHC-Options:          -Wall
+  Exposed-Modules:      Server
+                        Application
+                        Application.Types
+                        Pages.Home
+                        Pages.NotFound
+                        Routes
+                        Templates.Master
+                        Schema
+                        Imports
+  Build-Depends:        base >= 4.8 && < 5
+                      , acid-state
+                      , attoparsec
+                      , bytestring
+                      , containers
+                      , data-default
+                      , directory
+                      , exceptions
+                      , http-types
+                      , lucid
+                      , markup >= 3.1.0
+                      , monad-control
+                      , monad-logger
+                      , mtl
+                      , nested-routes >= 7.0.0
+                      , path-extra >= 0.0.3
+                      , regex-compat
+                      , resourcet
+                      , text
+                      , transformers
+                      , time
+                      , unordered-containers >= 0.2
+                      , urlpath >= 5.0.0.1
+                      , wai
+                      , wai-transformers >= 0.0.3
+                      , wai-extra
+                      , webpage
+
+Executable compatable-opinions
+  Default-Language:     Haskell2010
+  HS-Source-Dirs:       src
+  GHC-Options:          -Wall
+  Main-Is:              Main.hs
+  Other-Modules:        Application
+                        Application.Types
+                        Pages.Home
+                        Pages.NotFound
+                        Routes
+                        Templates.Master
+                        Schema
+                        Imports
+  Build-Depends:        base >= 4.8 && < 5
+                      , acid-state
+                      , attoparsec
+                      , aeson
+                      , bytestring
+                      , containers
+                      , directory
+                      , data-default
+                      , exceptions
+                      , http-types
+                      , lucid
+                      , markup
+                      , monad-control
+                      , monad-logger
+                      , mtl
+                      , nested-routes
+                      , optparse-applicative
+                      , path-extra
+                      , regex-compat
+                      , resourcet
+                      , text
+                      , transformers
+                      , time
+                      , urlpath
+                      , unordered-containers >= 0.2
+                      , warp
+                      , wai-transformers
+                      , wai-extra
+                      , webpage
+                      , yaml
+
+Test-Suite spec
+  Type:                 exitcode-stdio-1.0
+  Default-Language:     Haskell2010
+  Hs-Source-Dirs:       src
+                      , test
+  Ghc-Options:          -Wall
+  Main-Is:              Spec.hs
+  Build-Depends:        base
+                      , hspec
+                      , QuickCheck
+                      , quickcheck-instances
+
+Source-Repository head
+  Type:                 git
+--  Location:
