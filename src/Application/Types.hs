@@ -40,9 +40,10 @@ type MonadApp m =
 
 -- The environment accessible from our application
 data Env = Env
-  { envAuthority :: UrlAuthority
-  , envCwd       :: FilePath -- ^ for File Processing
-  , envStatic    :: FilePath
+  { envAuthority  :: UrlAuthority
+  , envCwd        :: FilePath -- ^ for File Processing
+  , envStatic     :: FilePath
+  , envProduction :: Bool
   } deriving (Show, Eq)
 
 -- | Data type representing top navigation bar
@@ -60,6 +61,30 @@ instance ToPath AppLinks Abs File where
 instance ToLocation AppLinks Abs File where
   toLocation x = fromPath <$> toPath x
 
+data AppResources
+  = JQuery
+  | JQueryCdn
+  | SemanticJs
+  | SemanticJsCdn
+  | SemanticCss
+  | SemanticCssCdn
+  deriving (Show, Eq)
+
+instance ToPath AppResources Abs File where
+  toPath JQuery      = parseAbsFile "/jquery"
+  toPath SemanticJs  = parseAbsFile "/semantic"
+  toPath SemanticCss = parseAbsFile "/semantic"
+  toPath JQueryCdn   = parseAbsFile "/ajax/libs/jquery/3.0.0-beta1/jquery"
+  toPath SemanticJs  = parseAbsFile "/ajax/libs/semantic-ui/2.1.8/semantic"
+  toPath SemanticCss = parseAbsFile "/ajax/libs/semantic-ui/2.1.8/semantic"
+
+instance ToLocation AppResources Abs File where
+  toLocation JQuery         = (addFileExt "min.js"  . fromPath) <$> toPath JQuery
+  toLocation SemanticJs     = (addFileExt "min.js"  . fromPath) <$> toPath SemanticJs
+  toLocation SemanticCss    = (addFileExt "min.css" . fromPath) <$> toPath SemanticCss
+  toLocation JQueryCdn      = (addFileExt "min.js"  . fromPath) <$> toPath JQueryCdn
+  toLocation SemanticJsCdn  = (addFileExt "min.js"  . fromPath) <$> toPath SemanticJsCdn
+  toLocation SemanticCssCdn = (addFileExt "min.css" . fromPath) <$> toPath SemanticCssCdn
 
 appendActiveWhen :: AppLinks -> Maybe AppLinks -> T.Text -> T.Text
 appendActiveWhen x (Just y) c | x == y = c <> " active"

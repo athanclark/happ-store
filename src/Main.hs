@@ -31,19 +31,21 @@ import Control.Monad
 
 -- | Application-wide options
 data AppOpts = AppOpts
-  { port   :: Maybe Int
-  , host   :: Maybe String
-  , cwd    :: Maybe FilePath
-  , static :: Maybe FilePath
+  { port       :: Maybe Int
+  , host       :: Maybe String
+  , cwd        :: Maybe FilePath
+  , static     :: Maybe FilePath
+  , production :: Maybe Bool
   } deriving (Show, Eq, Generic)
 
 instance Monoid AppOpts where
-  mempty = AppOpts Nothing Nothing Nothing Nothing
-  mappend (AppOpts p1 h1 c1 s1) (AppOpts p2 h2 c2 s2) =
-    AppOpts (getLast $ (Last p1) <> (Last p2))
-            (getLast $ (Last h1) <> (Last h2))
-            (getLast $ (Last c1) <> (Last c2))
-            (getLast $ (Last s1) <> (Last s2))
+  mempty = AppOpts Nothing Nothing Nothing Nothing Nothing
+  mappend (AppOpts p1 h1 c1 s1 pr1) (AppOpts p2 h2 c2 s2 pr2) =
+    AppOpts (getLast $ Last p1 <> Last p2)
+            (getLast $ Last h1 <> Last h2)
+            (getLast $ Last c1 <> Last c2)
+            (getLast $ Last s1 <> Last s2)
+            (getAny <$> (Any <$> pr1) <> (Any <$> pr2))
 
 instance Y.ToJSON AppOpts where
   toJSON = A.genericToJSON A.defaultOptions
@@ -52,7 +54,7 @@ instance Y.FromJSON AppOpts where
   parseJSON = A.genericParseJSON A.defaultOptions
 
 instance Default AppOpts where
-  def = AppOpts (Just 3000) (Just "localhost") Nothing Nothing
+  def = AppOpts (Just 3000) (Just "localhost") Nothing Nothing (Just False)
 
 appOpts :: Parser AppOpts
 appOpts = AppOpts
@@ -65,7 +67,7 @@ appOpts = AppOpts
         ( long "host"
        <> short 'h'
        <> metavar "HOST"
-       <> help "host to deploy URLs over - DEF: 'http://localhost'" ))
+       <> help "host to deploy URLs over - DEF: 'localhost'" ))
   <*> optional ( strOption
         ( long "cwd"
        <> short 'c'
@@ -76,10 +78,13 @@ appOpts = AppOpts
        <> short 's'
        <> metavar "STATIC"
        <> help "absolute directory to search for servable static files - DEF: `pwd`/static/" ))
+  <*> optional ( switch
+        ( long "production"
+       <> help "whether or not to run the app in production mode" ))
 
 -- | Command-line options
 data App = App
-  { options :: AppOpts
+  { options    :: AppOpts
   , configPath :: Maybe String
   } deriving (Show, Eq)
 
@@ -97,10 +102,12 @@ app = App
 
 main :: IO ()
 main = do
-  (commandOpts :: App) <- execParser opts
-  cwd' <- getCurrentDirectory
-  let yamlConfigPath' = fromMaybe (cwd' <> "/config/app.yaml") $
-        configPath commandOpts
+  commandOpts <- execParser opts :: IO App
+  cwd'        <- getCurrentDirectory
+  let yamlConfigPath' =
+        fromMaybe
+          (cwd' <> "/config/app.yaml")
+          (configPath commandOpts)
 
   yamlConfigPath     <- toFilePath <$> parseAbsFile yamlConfigPath'
   yamlConfigExists   <- doesFileExist yamlConfigPath
@@ -112,19 +119,24 @@ main = do
                  else return Nothing
 
   let yamlConfig = fromMaybe def mYamlConfig
-      dirs = (AppOpts Nothing Nothing (Just $ cwd' <> "/") (Just $ cwd' <> "/static/"))
+      dirs       = AppOpts
+                     Nothing
+                     Nothing
+                     (Just $ cwd' <> "/")
+                     (Just $ cwd' <> "/static/")
+                     Nothing
       config = dirs <> def <> yamlConfig <> options commandOpts
 
   cwdDir    <- toFilePath <$> parseAbsDir (fromJust $ cwd config)
   staticDir <- toFilePath <$> parseAbsDir (fromJust $ static config)
 
-  cwdExists <- doesDirectoryExist cwdDir
+  cwdExists    <- doesDirectoryExist cwdDir
   staticExists <- doesDirectoryExist staticDir
 
   case (cwdExists,staticExists) of
     (False,_) -> error $ "--cwd argument `"    <> cwdDir    <> "` does not exist"
     (_,False) -> error $ "--static argument `" <> staticDir <> "` does not exist"
-    _ -> entry (fromJust $ port config) $ appOptsToEnv config
+    _         -> entry (fromJust $ port config) (appOptsToEnv config)
   where
     opts :: ParserInfo App
     opts = info (helper <*> app)
@@ -134,8 +146,7 @@ main = do
 
 -- | Entry point, post options parsing
 entry :: Int -> Env -> IO ()
-entry p env = do
-  run p $ server' defApp
+entry p env = run p (server' defApp)
   where
     server'  = gzip def
              . logStdoutDev
@@ -151,8 +162,7 @@ entry p env = do
 -- | Note that this function will fail to pattern match on @Nothing@'s - use
 -- @def@ beforehand.
 appOptsToEnv :: AppOpts -> Env
-appOptsToEnv (AppOpts (Just p) (Just h) (Just c) (Just s)) =
-  Env (UrlAuthority "http" True Nothing h $
-        p <$ guard (p /= 80)
-      ) c s
+appOptsToEnv (AppOpts (Just p) (Just h) (Just c) (Just s) (Just pr)) =
+  Env (UrlAuthority "http" True Nothing h (p <$ guard (p /= 80)))
+    c s pr
 appOptsToEnv os = error $ "AppOpts improperly formatted: " ++ show os

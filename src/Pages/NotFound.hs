@@ -25,7 +25,7 @@ notFoundContent :: ( MonadApp m
 notFoundContent = do
   home <- T.pack <$> lift (locUrl =<< toLocation AppHome)
 
-  let page :: Monad m => WebPage (HtmlT m ()) T.Text
+  let page :: MonadApp m => WebPage (HtmlT m ()) T.Text
       page = masterPage { metaVars = meta_ [ makeAttribute "http-equiv" "refresh"
                                            , content_ $ "3;url=" <> home
                                            ]

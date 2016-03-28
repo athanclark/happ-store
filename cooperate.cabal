@@ -33,6 +33,7 @@ Library
                       , http-types
                       , lucid
                       , markup >= 3.1.0
+                      , mmorph
                       , monad-control
                       , monad-logger
                       , mtl
@@ -46,8 +47,9 @@ Library
                       , unordered-containers >= 0.2
                       , urlpath >= 5.0.0.1
                       , wai
-                      , wai-transformers >= 0.0.3
                       , wai-extra
+                      , wai-transformers >= 0.0.3
+                      , wai-middleware-content-type
                       , webpage
 
 Executable cooperate
@@ -75,6 +77,7 @@ Executable cooperate
                       , http-types
                       , lucid
                       , markup
+                      , mmorph
                       , monad-control
                       , monad-logger
                       , mtl
@@ -89,8 +92,9 @@ Executable cooperate
                       , urlpath
                       , unordered-containers >= 0.2
                       , warp
-                      , wai-transformers
                       , wai-extra
+                      , wai-transformers
+                      , wai-middleware-content-type
                       , webpage
                       , yaml
 

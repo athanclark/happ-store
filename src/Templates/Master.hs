@@ -6,17 +6,22 @@
 
 module Templates.Master where
 
-import Imports
+import Imports hiding (FileExt (..))
 
 import qualified Data.Text as T
 import Web.Page.Lucid
 import Lucid
+import Data.Markup
+import Data.Url
+import Path.Extended
+import qualified Network.Wai.Middleware.ContentType.Types as CT
 
 import Data.Monoid
 import Data.Default
 import Control.Monad.Trans
 import Control.Monad.Reader
 import Control.Monad.State (modify)
+import Control.Monad.Morph (hoist)
 import qualified Data.HashMap.Lazy as HM
 
 
@@ -30,7 +35,7 @@ htmlLight :: ( MonadApp m
 htmlLight s content = do
   hostname <- envAuthority <$> ask
   bs <- lift $ runAppTemplateT (renderBST content) hostname
-  bytestring Html bs
+  bytestring CT.Html bs
   modify $ HM.map $ mapStatus (const s)
                   . mapHeaders (("Content-Type","text/html"):)
 
@@ -44,8 +49,28 @@ html state content = htmlLight status200 (mainTemplate state content)
 
 -- * Templates
 
-masterPage :: Monad m => WebPage (HtmlT m ()) T.Text
-masterPage = def
+masterPage :: MonadApp m => WebPage (HtmlT m ()) T.Text
+masterPage =
+  let page :: MonadApp m => WebPage (HtmlT m ()) T.Text
+      page = def
+  in  page { pageTitle = "Cooperate"
+           , afterStylesScripts = afterStylesScripts'
+           }
+  where
+    afterStylesScripts' :: MonadApp m => HtmlT m ()
+    afterStylesScripts' = do
+      hostname <- envAuthority <$> lift ask
+      isProd <- envProduction <$> lift ask
+      if isProd
+      then hoist (`runAbsoluteUrlT` cloudflareCdn) $ do
+             jQuery <- lift (toLocation JQueryCdn)
+             deploy JavaScript Remote jQuery
+
+      else hoist (`runAbsoluteUrlT` hostname) $ do
+             jQuery <- lift (toLocation JQuery)
+             deploy JavaScript Remote jQuery
+
+    cloudflareCdn = UrlAuthority "https" True Nothing "cdnjs.cloudflare.com" Nothing
 
 masterTemplate :: ( Monad m
                   ) => Maybe AppLinks
@@ -54,7 +79,7 @@ masterTemplate :: ( Monad m
                     -> HtmlT m ()
 masterTemplate _ = template
 
-mainTemplate :: ( Monad m
+mainTemplate :: ( MonadApp m
                 ) => Maybe AppLinks
                   -> HtmlT m ()
                   -> HtmlT m ()
