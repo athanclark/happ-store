@@ -54,21 +54,58 @@ masterPage =
   let page :: MonadApp m => WebPage (HtmlT m ()) T.Text
       page = def
   in  page { pageTitle = "Cooperate"
-           , afterStylesScripts = afterStylesScripts'
+           , afterStylesScripts = do
+               scriptAssets
+               elmScripts
+           , styles = do
+               styleAssets
+               lessStyles
            }
   where
-    afterStylesScripts' :: MonadApp m => HtmlT m ()
-    afterStylesScripts' = do
+    scriptAssets :: MonadApp m => HtmlT m ()
+    scriptAssets = do
       hostname <- envAuthority <$> lift ask
       isProd <- envProduction <$> lift ask
       if isProd
       then hoist (`runAbsoluteUrlT` cloudflareCdn) $ do
              jQuery <- lift (toLocation JQueryCdn)
              deploy JavaScript Remote jQuery
+             semantic <- lift (toLocation SemanticJsCdn)
+             deploy JavaScript Remote semantic
 
       else hoist (`runAbsoluteUrlT` hostname) $ do
              jQuery <- lift (toLocation JQuery)
              deploy JavaScript Remote jQuery
+             semantic <- lift (toLocation SemanticJs)
+             deploy JavaScript Remote semantic
+
+    elmScripts :: MonadApp m => HtmlT m ()
+    elmScripts = do
+      hostname <- envAuthority <$> lift ask
+      hoist (`runAbsoluteUrlT` hostname) $ do
+        app <- lift (toLocation AppFrontend)
+        deploy JavaScript Remote app
+      deploy JavaScript Inline
+        ("var app = Elm.fullscreen(Elm.Bingo);" :: T.Text)
+
+    styleAssets :: MonadApp m => HtmlT m ()
+    styleAssets = do
+      hostname <- envAuthority <$> lift ask
+      isProd <- envProduction <$> lift ask
+      if isProd
+      then hoist (`runAbsoluteUrlT` cloudflareCdn) $ do
+             semantic <- lift (toLocation SemanticCssCdn)
+             deploy Css Remote semantic
+      else hoist (`runAbsoluteUrlT` hostname) $ do
+             semantic <- lift (toLocation SemanticCss)
+             deploy Css Remote semantic
+
+    lessStyles :: MonadApp m => HtmlT m ()
+    lessStyles = do
+      hostname <- envAuthority <$> lift ask
+      hoist (`runAbsoluteUrlT` hostname) $ do
+        lessStyles <- lift (toLocation LessStyles)
+        deploy Css Remote lessStyles
 
     cloudflareCdn = UrlAuthority "https" True Nothing "cdnjs.cloudflare.com" Nothing
 

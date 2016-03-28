@@ -68,6 +68,8 @@ data AppResources
   | SemanticJsCdn
   | SemanticCss
   | SemanticCssCdn
+  | LessStyles
+  | AppFrontend
   deriving (Show, Eq)
 
 instance ToPath AppResources Abs File where
@@ -77,6 +79,8 @@ instance ToPath AppResources Abs File where
   toPath JQueryCdn   = parseAbsFile "/ajax/libs/jquery/3.0.0-beta1/jquery"
   toPath SemanticJs  = parseAbsFile "/ajax/libs/semantic-ui/2.1.8/semantic"
   toPath SemanticCss = parseAbsFile "/ajax/libs/semantic-ui/2.1.8/semantic"
+  toPath LessStyles  = parseAbsFile "/styles"
+  toPath AppFrontend = parseAbsFile "/App"
 
 instance ToLocation AppResources Abs File where
   toLocation JQuery         = (addFileExt "min.js"  . fromPath) <$> toPath JQuery
@@ -85,6 +89,8 @@ instance ToLocation AppResources Abs File where
   toLocation JQueryCdn      = (addFileExt "min.js"  . fromPath) <$> toPath JQueryCdn
   toLocation SemanticJsCdn  = (addFileExt "min.js"  . fromPath) <$> toPath SemanticJsCdn
   toLocation SemanticCssCdn = (addFileExt "min.css" . fromPath) <$> toPath SemanticCssCdn
+  toLocation LessStyles     = (addFileExt "css"     . fromPath) <$> toPath LessStyles
+  toLocation AppFrontend    = (addFileExt "js"      . fromPath) <$> toPath AppFrontend
 
 appendActiveWhen :: AppLinks -> Maybe AppLinks -> T.Text -> T.Text
 appendActiveWhen x (Just y) c | x == y = c <> " active"
