@@ -80,19 +80,37 @@ stack install --no-system-ghc --install-ghc
 
 while inside the root directory of the repo. This will build
 the executable, so you can run `stack exec cooperate` to spark
-the server. Then, to build the frontend, just `cd frontend/`
-first, then run
+the server. To build the frontend, just run
 
 ```bash
-npm install && npm run watch 
+cd frontend/
+npm install
+# Builds the javascript:
+gulp elm
+# Builds the css:
+gulp less
 ```
-
-To build both the less styles and the elm frontend. It
-sparks a livereload process, I haven't build a oneshot
-build script yet, sorry :\
 
 ## The Algorithm
 
 The goal of this algorithm is to _sort_ the populus based on
 coordination to particular beliefs that a _user_ searches for.
 
+- credits = currency for allocating a statement
+    - Note: statements are utf-8 encoded, but also quarantined by language.
+- 1 credit / day given
+- 10 views = 1 credit
+- 2 decisions on an authored statement = 1 credit
+- 10 decisions = 1 credit
+
+Sorting:
+
+- by some statement (word cloud)
+    - people that agree with it also agree with...
+    - people that disagree with it also disagree with...
+
+A belief is:
+
+- a statement, claimed whether true or not true
+- an item or event, claimed to have happened or exist, or not
+- a person, endorsing or disdaining their character

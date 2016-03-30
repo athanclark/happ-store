@@ -1,4 +1,4 @@
-module Bingo where
+module App where
 
 import Html exposing (..)
 import Html.Attributes exposing (..)
@@ -6,30 +6,24 @@ import Task
 import Effects exposing (..)
 import StartApp
 
+import Root exposing (..)
+
 import Items.Views.Title as Title
 import Items.Views.List  as List
 import Items.Actions     as ItemsActions
 import Model exposing(model, Model)
 
--- VIEW
-view address model =
-  div [ class "App" ]
-    [ Title.view
-    , List.view address model
-    ]
-
 -- INIT
+app : StartApp.App (RootModel number)
 app = StartApp.start
-  { init   = (model, ItemsActions.getItems)
-  , view   = view
-  , update = update
+  { init   = (initRootModel 0, Effects.none)
+  , view   = rootTemplate (\_ _ -> [text "yo"])
+  , update = rootUpdate (\_ _ -> (0, Effects.none))
   , inputs = [ ]
   }
 
+main : Signal.Signal Html
 main = app.html
-
-update : ItemsActions.Action -> Model -> (Model, Effects ItemsActions.Action)
-update = ItemsActions.update
 
 port tasks : Signal (Task.Task Effects.Never ())
 port tasks =

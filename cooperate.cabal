@@ -23,6 +23,7 @@ Library
                         Schema
                         Imports
   Build-Depends:        base >= 4.8 && < 5
+                      , cooperate-lib
                       , acid-state
                       , attoparsec
                       , bytestring
@@ -30,9 +31,12 @@ Library
                       , data-default
                       , directory
                       , exceptions
+                      , hashable
                       , http-types
+                      , ixset
                       , lucid
                       , markup >= 3.1.0
+                      , memcached
                       , mmorph
                       , monad-control
                       , monad-logger
@@ -41,11 +45,13 @@ Library
                       , path-extra >= 0.0.3
                       , regex-compat
                       , resourcet
+                      , safecopy
                       , text
                       , transformers
                       , time
                       , unordered-containers >= 0.2
                       , urlpath >= 5.0.0.1
+                      , uuid
                       , wai
                       , wai-extra
                       , wai-transformers >= 0.0.3
@@ -55,6 +61,7 @@ Library
 Executable cooperate
   Default-Language:     Haskell2010
   HS-Source-Dirs:       src
+                      , main
   GHC-Options:          -Wall
   Main-Is:              Main.hs
   Other-Modules:        Application
@@ -66,6 +73,7 @@ Executable cooperate
                         Schema
                         Imports
   Build-Depends:        base >= 4.8 && < 5
+                      , cooperate-lib
                       , acid-state
                       , attoparsec
                       , aeson
@@ -74,9 +82,12 @@ Executable cooperate
                       , directory
                       , data-default
                       , exceptions
+                      , hashable
                       , http-types
+                      , ixset
                       , lucid
                       , markup
+                      , memcached
                       , mmorph
                       , monad-control
                       , monad-logger
@@ -86,11 +97,13 @@ Executable cooperate
                       , path-extra
                       , regex-compat
                       , resourcet
+                      , safecopy
                       , text
                       , transformers
                       , time
                       , urlpath
                       , unordered-containers >= 0.2
+                      , uuid
                       , warp
                       , wai-extra
                       , wai-transformers

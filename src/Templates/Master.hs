@@ -85,7 +85,7 @@ masterPage =
         app <- lift (toLocation AppFrontend)
         deploy JavaScript Remote app
       deploy JavaScript Inline
-        ("var app = Elm.fullscreen(Elm.Bingo);" :: T.Text)
+        ("var app = Elm.fullscreen(Elm.App);" :: T.Text)
 
     styleAssets :: MonadApp m => HtmlT m ()
     styleAssets = do
