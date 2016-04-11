@@ -16,6 +16,8 @@ import Data.IxSet
 import Data.Hashable (Hashable)
 import qualified Data.HashMap.Strict as HM
 
+import Cooperate.Types (BeliefSet)
+
 import Data.Data
 import GHC.Generics
 
@@ -98,6 +100,7 @@ data User = User
   , userName       :: T.Text
   , userLogins     :: [LoginMethod]
   , userReferences :: References
+  , userBeliefs    :: BeliefSet
   } deriving (Show, Eq, Data, Typeable)
 
 $(deriveSafeCopy 0 'base ''User)
