@@ -1,6 +1,6 @@
 module Content where
 
-import Beliefs         exposing (BeliefsModel, initBeliefsModel)
+import Beliefs         exposing (..)
 import People          exposing (PeopleModel, initPeopleModel)
 
 import Effects         exposing (Effects)
@@ -28,6 +28,7 @@ initContentModel =
 type ContentAction
   = ClickedBeliefs
   | ClickedPeople
+  | BeliefsAction BeliefsAction
 
 contentUpdate : ContentAction
              -> ContentModel
@@ -42,6 +43,11 @@ contentUpdate action model =
                         }
                       , Effects.none
                       )
+    BeliefsAction a -> let (newBeliefsModel, effs) = beliefsUpdate a model.contentBeliefs
+                       in  ( { model | contentBeliefs = newBeliefsModel
+                             }
+                           , Effects.map BeliefsAction effs
+                           )
 
 
 contentView : Signal.Address ContentAction
@@ -63,10 +69,22 @@ contentView address model =
                   , onClick address ClickedPeople
                   ]
                   [text "People"]
+              , div [class "right menu"]
+                  [ div [class "item"]
+                      [ div [class "ui transparent icon input"]
+                          [ input [ type' "text"
+                                  , placeholder "Search..."
+                                  ] []
+                          , i [class "search link icon"] []
+                          ]
+                      ]
+                  ]
               ]
-          , div [class "ui bottom attached segment"]
-              [ text "yo"
-              ]
+          , div [class "ui bottom attached segment"] <|
+              case model.contentMode of
+                ContentBeliefs -> beliefsView (Signal.forwardTo address BeliefsAction)
+                                              model.contentBeliefs
+                ContentPeople  -> [text "sup"]
           ]
       ]
   ]
