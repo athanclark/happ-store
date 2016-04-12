@@ -1,0 +1,3 @@
+[submodule "cooperate-lib"]
+	path = cooperate-lib
+	url = git@github.com:athanclark/cooperate-lib.git

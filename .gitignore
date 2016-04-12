@@ -15,7 +15,6 @@ cabal.sandbox.config
 *.aux
 *.hp
 .stack-work/
-stack.yaml
 .docker-sandbox/
 Dockerfile
 target/

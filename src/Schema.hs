@@ -97,7 +97,6 @@ data User = User
   { userName       :: T.Text
   , userReferences :: References
   , userBeliefs    :: BeliefSet UserId
-  , userCredits    :: Int
   } deriving (Show, Eq, Data, Typeable)
 
 $(deriveSafeCopy 0 'base ''User)
