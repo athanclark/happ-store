@@ -43,6 +43,7 @@ rootTemplate contentView address model =
   div []
     [ topNav (Signal.forwardTo address NavAction) model.rootNav
     , div [ class "ui grid container"
+          , id "content"
           ] <|
         (contentView (Signal.forwardTo address ContentAction) model.rootContent)
         ++ [ footer
@@ -51,8 +52,9 @@ rootTemplate contentView address model =
 
 footer : Html
 footer =
-  div [class "one column row center aligned"]
-    [ text "Copyright (c) 2016 Athan Clark"
+  div [class "one column row"]
+    [ div [class "column center aligned"]
+        [text "Copyright (c) 2016 Athan Clark"]
     ]
 
 

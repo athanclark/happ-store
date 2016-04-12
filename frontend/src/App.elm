@@ -6,7 +6,8 @@ import Task
 import Effects exposing (..)
 import StartApp
 
-import Root exposing (..)
+import Root    exposing (..)
+import Content exposing (..)
 
 import Items.Views.Title as Title
 import Items.Views.List  as List
@@ -14,11 +15,11 @@ import Items.Actions     as ItemsActions
 import Model exposing(model, Model)
 
 -- INIT
-app : StartApp.App (RootModel number)
+app : StartApp.App (RootModel ContentModel)
 app = StartApp.start
-  { init   = (initRootModel 0, Effects.none)
-  , view   = rootTemplate (\_ _ -> [text "yo"])
-  , update = rootUpdate (\_ _ -> (0, Effects.none))
+  { init   = (initRootModel initContentModel, Effects.none)
+  , view   = rootTemplate contentView
+  , update = rootUpdate contentUpdate
   , inputs = [ ]
   }
 

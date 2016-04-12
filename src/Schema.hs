@@ -64,6 +64,7 @@ instance Hashable LoginMethod
 
 -- * User
 
+
 -- | Public references for a particular person
 data Reference
   = ReferenceTwitter  { getTwitterHandle  :: T.Text }
@@ -93,10 +94,14 @@ newtype UserId = UserId
 
 $(deriveSafeCopy 0 'base ''UserId)
 
+-- | A person is either someone we can stringently identify,
+--   or someone unregistered.
+type Person = Either UserId T.Text
+
 data User = User
   { userName       :: T.Text
   , userReferences :: References
-  , userBeliefs    :: BeliefSet UserId
+  , userBeliefs    :: BeliefSet Person
   } deriving (Show, Eq, Data, Typeable)
 
 $(deriveSafeCopy 0 'base ''User)
@@ -133,14 +138,14 @@ data BeliefAccount = BeliefAccount
 
 -- | All beliefs everyone's declared
 newtype BeliefIndex = BeliefIndex
-  { getBeliefIndex :: HM.HashMap (Belief UserId) BeliefAccount
+  { getBeliefIndex :: HM.HashMap (Belief Person) BeliefAccount
   } deriving (Show, Eq, Data, Typeable)
 
-toListBI :: BeliefIndex -> [(Belief UserId, (UserId, Map.Map AgreementMeasure [UserId]))]
+toListBI :: BeliefIndex -> [(Belief Person, (UserId, Map.Map AgreementMeasure [UserId]))]
 toListBI (BeliefIndex xs) = map go (HM.toList xs)
   where
-    go :: (Belief UserId, BeliefAccount)
-       -> (Belief UserId, (UserId, Map.Map AgreementMeasure [UserId]))
+    go :: (Belief Person, BeliefAccount)
+       -> (Belief Person, (UserId, Map.Map AgreementMeasure [UserId]))
     go (belief, vs) =
       ( belief
       , ( beliefAuthor vs
@@ -148,11 +153,11 @@ toListBI (BeliefIndex xs) = map go (HM.toList xs)
         )
       )
 
-fromListBI :: [(Belief UserId, (UserId, Map.Map AgreementMeasure [UserId]))] -> BeliefIndex
+fromListBI :: [(Belief Person, (UserId, Map.Map AgreementMeasure [UserId]))] -> BeliefIndex
 fromListBI xs = BeliefIndex . HM.fromList $ map go xs
   where
-    go :: (Belief UserId, (UserId, Map.Map AgreementMeasure [UserId]))
-       -> (Belief UserId, BeliefAccount)
+    go :: (Belief Person, (UserId, Map.Map AgreementMeasure [UserId]))
+       -> (Belief Person, BeliefAccount)
     go (belief, (author, vs)) =
         ( belief
         , BeliefAccount author $ Map.map HS.fromList vs
@@ -215,7 +220,7 @@ addLogin :: UserId
 addLogin k m (LoginIndex login) = LoginIndex (HM.insert m k login)
 
 assertBelief :: UserId
-             -> Belief UserId
+             -> Belief Person
              -> BeliefMeasure
              -> (UserBase, BeliefIndex)
              -> (UserBase, BeliefIndex)
@@ -237,7 +242,7 @@ assertBelief k b m (UserBase base, BeliefIndex beliefs) =
                    (beliefAgreement m)
                    xs
 
-findAlike :: Belief UserId
+findAlike :: Belief Person
           -> Int -- ^ Range
           -> AgreementMeasure
           -> BeliefIndex
@@ -249,7 +254,7 @@ findAlike b r m (BeliefIndex beliefs) =
       (mid, _) = Map.split (m + r') ms
   in  fold mid
 
-findNotAlike :: Belief UserId
+findNotAlike :: Belief Person
              -> Int -- ^ Range
              -> AgreementMeasure
              -> BeliefIndex
