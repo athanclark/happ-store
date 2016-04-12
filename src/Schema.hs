@@ -97,6 +97,7 @@ data User = User
   { userName       :: T.Text
   , userReferences :: References
   , userBeliefs    :: BeliefSet UserId
+  , userCredits    :: Int
   } deriving (Show, Eq, Data, Typeable)
 
 $(deriveSafeCopy 0 'base ''User)
@@ -125,23 +126,46 @@ instance SafeCopy LoginIndex where
 
 
 
--- | All beliefs everyone's declared
-newtype BeliefIndex = BeliefIndex
-  { getBeliefIndex :: HM.HashMap (Belief UserId)
-                                 (Map.Map AgreementMeasure
-                                          (HS.HashSet UserId))
+data BeliefAccount = BeliefAccount
+  { beliefAuthor  :: {-# UNPACK #-} !UserId
+  , beliefAccount :: !(Map.Map AgreementMeasure (HS.HashSet UserId))
   } deriving (Show, Eq, Data, Typeable)
 
-toListBI :: BeliefIndex -> [(Belief UserId, Map.Map AgreementMeasure [UserId])]
-toListBI (BeliefIndex xs) = map (\(k, vs) -> (k, Map.map HS.toList vs)) $ HM.toList xs
 
-fromListBI :: [(Belief UserId, Map.Map AgreementMeasure [UserId])] -> BeliefIndex
-fromListBI xs = BeliefIndex . HM.fromList $ map (\(k, vs) -> (k, Map.map HS.fromList vs)) xs
+-- | All beliefs everyone's declared
+newtype BeliefIndex = BeliefIndex
+  { getBeliefIndex :: HM.HashMap (Belief UserId) BeliefAccount
+  } deriving (Show, Eq, Data, Typeable)
+
+toListBI :: BeliefIndex -> [(Belief UserId, (UserId, Map.Map AgreementMeasure [UserId]))]
+toListBI (BeliefIndex xs) = map go (HM.toList xs)
+  where
+    go :: (Belief UserId, BeliefAccount)
+       -> (Belief UserId, (UserId, Map.Map AgreementMeasure [UserId]))
+    go (belief, vs) =
+      ( belief
+      , ( beliefAuthor vs
+        , Map.map HS.toList $ beliefAccount vs
+        )
+      )
+
+fromListBI :: [(Belief UserId, (UserId, Map.Map AgreementMeasure [UserId]))] -> BeliefIndex
+fromListBI xs = BeliefIndex . HM.fromList $ map go xs
+  where
+    go :: (Belief UserId, (UserId, Map.Map AgreementMeasure [UserId]))
+       -> (Belief UserId, BeliefAccount)
+    go (belief, (author, vs)) =
+        ( belief
+        , BeliefAccount author $ Map.map HS.fromList vs
+        )
 
 instance Monoid BeliefIndex where
   mempty = BeliefIndex HM.empty
   mappend (BeliefIndex xs) (BeliefIndex ys) =
-    BeliefIndex $ HM.unionWith (Map.unionWith HS.union) xs ys
+    BeliefIndex $ HM.unionWith go xs ys
+    where
+      go (BeliefAccount ax xs) (BeliefAccount ay ys) =
+        BeliefAccount ay (Map.unionWith HS.union xs ys)
 
 instance SafeCopy BeliefIndex where
   putCopy xs = contain . safePut $ toListBI xs
@@ -156,9 +180,9 @@ insertUser :: UserId
 insertUser k logins u (UserBase base, LoginIndex login, beliefs) =
   ( UserBase $ HM.insert k u base
   , LoginIndex $ foldr (\l acc -> HM.insert l k acc) login logins
-  , let new = BeliefIndex $ (\m -> Map.singleton (beliefAgreement m) (HS.singleton k))
-                         <$> getBeliefSet (userBeliefs u)
-    in  new `mappend` beliefs
+  , snd $ foldr (uncurry $ assertBelief k)
+                (UserBase base, beliefs)
+                (HM.toList . getBeliefSet $ userBeliefs u)
   )
 
 deleteUser :: UserId
@@ -167,7 +191,9 @@ deleteUser :: UserId
 deleteUser k (UserBase base, LoginIndex login, BeliefIndex beliefs) =
   ( UserBase $ HM.delete k base
   , LoginIndex $ HM.filter (/= k) login
-  , BeliefIndex $ HM.map (Map.map (HS.filter (/= k))) beliefs
+  , BeliefIndex $ HM.map (\ba -> ba { beliefAccount = Map.map (HS.filter (/= k))
+                                                              (beliefAccount ba)
+                                    }) beliefs
   )
 
 editUser :: UserId
@@ -197,15 +223,20 @@ assertBelief :: UserId
 assertBelief k b m (UserBase base, BeliefIndex beliefs) =
   ( UserBase $ HM.adjust (\u -> u { userBeliefs = BeliefSet $ HM.insert b m (getBeliefSet $ userBeliefs u)
                                   }) k base
-  , BeliefIndex $ HM.alter go b beliefs
+  , BeliefIndex $ HM.alter (Just . go) b beliefs
   )
   where
-    go :: Maybe (Map.Map AgreementMeasure (HS.HashSet UserId))
-       -> Maybe (Map.Map AgreementMeasure (HS.HashSet UserId))
-    go mms = Just $ Map.update
-                      (Just . HS.insert k)
-                      (beliefAgreement m)
-                      (fromMaybe Map.empty mms)
+    go :: Maybe BeliefAccount
+       -> BeliefAccount
+    go Nothing =
+      BeliefAccount k $
+        Map.singleton (beliefAgreement m)
+                      (HS.singleton k)
+    go (Just (BeliefAccount author xs)) =
+      BeliefAccount author $
+        Map.update (Just . HS.insert k)
+                   (beliefAgreement m)
+                   xs
 
 findAlike :: Belief UserId
           -> Int -- ^ Range
@@ -213,7 +244,7 @@ findAlike :: Belief UserId
           -> BeliefIndex
           -> HS.HashSet UserId
 findAlike b r m (BeliefIndex beliefs) =
-  let ms = fromMaybe Map.empty (HM.lookup b beliefs)
+  let ms = fromMaybe Map.empty $ beliefAccount <$> HM.lookup b beliefs
       r' = fromIntegral $ r `div` 2
       (_, right) = Map.split (m - r') ms
       (mid, _) = Map.split (m + r') ms
@@ -225,8 +256,8 @@ findNotAlike :: Belief UserId
              -> BeliefIndex
              -> HS.HashSet UserId
 findNotAlike b r m (BeliefIndex beliefs) =
-  let ms = fromMaybe Map.empty (HM.lookup b beliefs)
+  let ms = fromMaybe Map.empty $ beliefAccount <$> HM.lookup b beliefs
       r' = fromIntegral $ r `div` 2
       (left, _) = Map.split (m - r') ms
       (_, right) = Map.split (m + r') ms
-  in  fold (Map.unionWith HS.union left right)
+  in  fold (Map.union left right) -- are disjoint
