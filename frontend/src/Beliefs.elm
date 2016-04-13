@@ -24,10 +24,21 @@ type alias BeliefsModel =
 
 initBeliefsModel : BeliefsModel
 initBeliefsModel =
-  { beliefsStatements   = []
-  , beliefsExistences   = []
+  { beliefsStatements   = [
+        {
+          statementSubject = SubjectObject {objectName = "Foo"}
+        , statementStatement = "yolo"
+        }
+      ]
+  , beliefsExistences   = [
+        ExistenceObject {objectName = "Foo"}
+      ]
   , beliefsEndorsements = []
-  , beliefsMetas        = []
+  , beliefsMetas        = [
+        { metaSubject = PersonUnknown "Me lol"
+        , metaBelief = BeliefEndorsement (PersonUnknown "You hahah")
+        }
+      ]
   , beliefsMode         = BeliefsStatement
   }
 
@@ -92,4 +103,9 @@ beliefsView address model =
           , onClick address ClickedMetas
           ] [text "Meta Beliefs"]
       ]
-  ]
+  ] ++ (case model.beliefsMode of
+          BeliefsStatement -> List.map (viewStatement []) model.beliefsStatements
+          BeliefsExistence -> List.map (viewExistence []) model.beliefsExistences
+          BeliefsEndorsement -> List.map (viewEndorsement []) model.beliefsEndorsements
+          BeliefsMeta -> List.map (viewMeta []) model.beliefsMetas
+       )
