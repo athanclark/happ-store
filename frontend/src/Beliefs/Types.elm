@@ -2,7 +2,7 @@ module Beliefs.Types where
 
 import Html exposing (..)
 import Html.Attributes exposing (..)
-
+import Html.Attributes as A
 
 type alias Object =
   { objectName        : String
@@ -42,8 +42,8 @@ type Existence
   | ExistencePerson Person
 
 
-viewExistence : List Html -> Existence -> Html
-viewExistence content ex =
+viewExistence : Bool -> Existence -> Html
+viewExistence renderFooter ex =
   div [class "ui raised segment"] <|
     case ex of
       ExistenceObject o ->
@@ -53,7 +53,12 @@ viewExistence content ex =
                 [text <| o.objectName]
             ]
         , div [class "divider"] []
-        ] ++ content
+        ] ++ (if renderFooter
+              then [div [class "ui grid"]
+                      [ div [class "two column row"] <|
+                          opinionFooter ("Exists", "Exclusion")
+                      ]]
+              else [])
       ExistenceEvent e ->
         [ div [class "ui header"]
             [ eventIcon
@@ -64,7 +69,12 @@ viewExistence content ex =
                 ]
             ]
         , div [class "divider"] []
-        ] ++ content
+        ] ++ (if renderFooter
+              then [div [class "ui grid"]
+                      [ div [class "two column row"] <|
+                          opinionFooter ("Did, or Will Happen", "Exclusion")
+                      ]]
+              else [])
       ExistencePerson p ->
         [ div [class "ui header"]
             [ personIcon
@@ -74,7 +84,12 @@ viewExistence content ex =
                            PersonUnknown x -> x]
             ]
         , div [class "divider"] []
-        ] ++ content
+        ] ++ (if renderFooter
+              then [div [class "ui grid"]
+                      [ div [class "two column row"] <|
+                          opinionFooter ("They Exist", "Exclusion")
+                      ]]
+              else [])
 
 type Subject
   = SubjectObject Object
@@ -86,8 +101,8 @@ type alias Statement =
   , statementStatement : String
   }
 
-viewStatement : List Html -> Statement -> Html
-viewStatement content st =
+viewStatement : Bool -> Statement -> Html
+viewStatement renderFooter st =
   div [class "ui raised segment"] <|
     case st.statementSubject of
       SubjectObject o ->
@@ -99,7 +114,12 @@ viewStatement content st =
         , div []
             [text <| st.statementStatement]
         , div [class "divider"] []
-        ] ++ content
+        ] ++ (if renderFooter
+              then [div [class "ui grid"]
+                      [ div [class "two column row"] <|
+                          opinionFooter ("Agreement", "Exclusion")
+                      ]]
+              else [])
       SubjectEvent e ->
         [ div [class "ui header"]
             [ eventIcon
@@ -112,7 +132,12 @@ viewStatement content st =
         , div []
             [text <| st.statementStatement]
         , div [class "divider"] []
-        ] ++ content
+        ] ++ (if renderFooter
+              then [div [class "ui grid"]
+                      [ div [class "two column row"] <|
+                          opinionFooter ("Agreement", "Exclusion")
+                      ]]
+              else [])
       SubjectPerson p ->
         [ div [class "ui header"]
             [ personIcon
@@ -124,13 +149,18 @@ viewStatement content st =
         , div []
             [text <| st.statementStatement]
         , div [class "divider"] []
-        ] ++ content
+        ] ++ (if renderFooter
+              then [div [class "ui grid"]
+                      [ div [class "two column row"] <|
+                          opinionFooter ("Agreement", "Exclusion")
+                      ]]
+              else [])
 
 
 type alias Endorsement = Person
 
-viewEndorsement : List Html -> Endorsement -> Html
-viewEndorsement content person =
+viewEndorsement : Bool -> Endorsement -> Html
+viewEndorsement renderFooter person =
   div [class "ui raised segment"] <|
     case person of
       PersonKnown x ->
@@ -140,7 +170,12 @@ viewEndorsement content person =
                 [text x]
             ]
         , div [class "divider"] []
-        ] ++ content
+        ] ++ (if renderFooter
+              then [div [class "ui grid"]
+                      [ div [class "two column row"] <|
+                          opinionFooter ("Endorsement", "Exclusion")
+                      ]]
+              else [])
       PersonUnknown x ->
         [ div [class "ui header"]
             [ personIcon
@@ -148,7 +183,12 @@ viewEndorsement content person =
                 [text x]
             ]
         , div [class "divider"] []
-        ] ++ content
+        ] ++ (if renderFooter
+              then [div [class "ui grid"]
+                      [ div [class "two column row"] <|
+                          opinionFooter ("Endorsement", "Exclusion")
+                      ]]
+              else [])
 
 type Belief
   = BeliefExistence   Existence
@@ -163,8 +203,8 @@ type alias Meta =
 metaIcon : Html
 metaIcon = i [class "icon settings"] []
 
-viewMeta : List Html -> Meta -> Html
-viewMeta content meta =
+viewMeta : Meta -> Html
+viewMeta meta =
   div [class "ui raised segment"] <|
     [ div [class "ui header"]
         [ metaIcon
@@ -177,8 +217,37 @@ viewMeta content meta =
             ]
         ]
     , case meta.metaBelief of
-        BeliefExistence e -> viewExistence [] e
-        BeliefStatement s -> viewStatement [] s
-        BeliefEndorsement e -> viewEndorsement [] e
+        BeliefExistence e   -> viewExistence   False e
+        BeliefStatement s   -> viewStatement   False s
+        BeliefEndorsement e -> viewEndorsement False e
     , div [class "divider"] []
-    ] ++ content
+    , div [class "ui grid"]
+        [ div [class "two column row"] <|
+            opinionFooter ("They Do Believe", "Exclusion")
+        ]
+    ]
+
+
+opinionFooter : (String, String)
+             -> List Html
+opinionFooter (l,r) =
+  [ div [class "column"]
+      [ div [class "ui blue label"]
+          [text l]
+      , input [ type' "range"
+              , value "125"
+              , A.min "0"
+              , A.max "256"
+              ] []
+      ]
+  , div [class "column"]
+      [ div [class "ui red label"]
+          [text r]
+      , input [ type' "range"
+              , value "125"
+              , A.min "0"
+              , A.max "256"
+              ] []
+      ]
+  ]
+

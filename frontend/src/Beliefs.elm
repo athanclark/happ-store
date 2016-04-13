@@ -104,8 +104,15 @@ beliefsView address model =
           ] [text "Meta Beliefs"]
       ]
   ] ++ (case model.beliefsMode of
-          BeliefsStatement -> List.map (viewStatement []) model.beliefsStatements
-          BeliefsExistence -> List.map (viewExistence []) model.beliefsExistences
-          BeliefsEndorsement -> List.map (viewEndorsement []) model.beliefsEndorsements
-          BeliefsMeta -> List.map (viewMeta []) model.beliefsMetas
+          BeliefsStatement ->
+            List.map (viewStatement True)
+              model.beliefsStatements
+          BeliefsExistence ->
+            List.map (viewExistence True)
+              model.beliefsExistences
+          BeliefsEndorsement ->
+            List.map (viewEndorsement True)
+              model.beliefsEndorsements
+          BeliefsMeta ->
+            List.map viewMeta model.beliefsMetas
        )
