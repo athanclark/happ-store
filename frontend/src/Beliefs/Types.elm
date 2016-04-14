@@ -1,11 +1,31 @@
 module Beliefs.Types where
 
+import String exposing (toInt)
+import Effects exposing (Effects)
+
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Attributes as A
+import Html.Attributes.Extra exposing (valueAsInt)
+import Html.Events exposing (..)
+
+
+type BeliefAction
+  = ChangedMeasure Int
+  | ChangedExclusion Int
+  | ClickedSubmit
+
+beliefUpdate : BeliefAction
+            -> (a, Maybe Int, Maybe Int)
+            -> ((a, Maybe Int, Maybe Int), Effects BeliefAction)
+beliefUpdate action (x,mmeasure, mexclusion) =
+  case action of
+    ChangedMeasure n -> Debug.log (toString n) <| ((x, Just n, mexclusion), Effects.none)
+    ChangedExclusion n -> ((x, mmeasure, Just n), Effects.none)
+    ClickedSubmit -> ((x,mmeasure, mexclusion), Effects.none)
 
 type alias Object =
-  { objectName        : String
+  { objectName : String
   }
 
 objectIcon : Html
@@ -18,15 +38,6 @@ type alias Event =
 
 eventIcon : Html
 eventIcon = i [class "icon calendar"] []
-
-viewEventCard : Event -> Html
-viewEventCard event =
-   div [class "content"]
-     [ div [class "header"]
-         [text <| event.eventName]
-     , div [class "meta"]
-         [text <| event.eventTime]
-     ]
 
 
 type Person
@@ -42,8 +53,11 @@ type Existence
   | ExistencePerson Person
 
 
-viewExistence : Bool -> Existence -> Html
-viewExistence renderFooter ex =
+viewExistence : Signal.Address BeliefAction
+             -> Bool
+             -> (Existence, Maybe Int, Maybe Int)
+             -> Html
+viewExistence address renderFooter (ex, mval, mexp) =
   div [class "ui raised segment"] <|
     case ex of
       ExistenceObject o ->
@@ -52,11 +66,11 @@ viewExistence renderFooter ex =
             , div [class "content"]
                 [text <| o.objectName]
             ]
-        , div [class "divider"] []
+        , div [class "ui divider"] []
         ] ++ (if renderFooter
               then [div [class "ui grid"]
-                      [ div [class "two column row"] <|
-                          opinionFooter ("Exists", "Exclusion")
+                      [ div [class "row"] <|
+                          opinionFooter address ("Exists", "Exclusion") mval mexp
                       ]]
               else [])
       ExistenceEvent e ->
@@ -68,11 +82,11 @@ viewExistence renderFooter ex =
                     [text <| e.eventTime]
                 ]
             ]
-        , div [class "divider"] []
+        , div [class "ui divider"] []
         ] ++ (if renderFooter
               then [div [class "ui grid"]
-                      [ div [class "two column row"] <|
-                          opinionFooter ("Did, or Will Happen", "Exclusion")
+                      [ div [class "row"] <|
+                          opinionFooter address ("Did, or Will Happen", "Exclusion") mval mexp
                       ]]
               else [])
       ExistencePerson p ->
@@ -83,11 +97,11 @@ viewExistence renderFooter ex =
                            PersonKnown x -> x
                            PersonUnknown x -> x]
             ]
-        , div [class "divider"] []
+        , div [class "ui divider"] []
         ] ++ (if renderFooter
               then [div [class "ui grid"]
-                      [ div [class "two column row"] <|
-                          opinionFooter ("They Exist", "Exclusion")
+                      [ div [class "row"] <|
+                          opinionFooter address ("They Exist", "Exclusion") mval mexp
                       ]]
               else [])
 
@@ -101,8 +115,11 @@ type alias Statement =
   , statementStatement : String
   }
 
-viewStatement : Bool -> Statement -> Html
-viewStatement renderFooter st =
+viewStatement : Signal.Address BeliefAction
+             -> Bool
+             -> (Statement, Maybe Int, Maybe Int)
+             -> Html
+viewStatement address renderFooter (st, mval, mexp) =
   div [class "ui raised segment"] <|
     case st.statementSubject of
       SubjectObject o ->
@@ -113,11 +130,11 @@ viewStatement renderFooter st =
             ]
         , div []
             [text <| st.statementStatement]
-        , div [class "divider"] []
+        , div [class "ui divider"] []
         ] ++ (if renderFooter
               then [div [class "ui grid"]
-                      [ div [class "two column row"] <|
-                          opinionFooter ("Agreement", "Exclusion")
+                      [ div [class "row"] <|
+                          opinionFooter address ("Agreement", "Exclusion") mval mexp
                       ]]
               else [])
       SubjectEvent e ->
@@ -131,11 +148,11 @@ viewStatement renderFooter st =
             ]
         , div []
             [text <| st.statementStatement]
-        , div [class "divider"] []
+        , div [class "ui divider"] []
         ] ++ (if renderFooter
               then [div [class "ui grid"]
-                      [ div [class "two column row"] <|
-                          opinionFooter ("Agreement", "Exclusion")
+                      [ div [class "row"] <|
+                          opinionFooter address ("Agreement", "Exclusion") mval mexp
                       ]]
               else [])
       SubjectPerson p ->
@@ -148,19 +165,22 @@ viewStatement renderFooter st =
             ]
         , div []
             [text <| st.statementStatement]
-        , div [class "divider"] []
+        , div [class "ui divider"] []
         ] ++ (if renderFooter
               then [div [class "ui grid"]
-                      [ div [class "two column row"] <|
-                          opinionFooter ("Agreement", "Exclusion")
+                      [ div [class "row"] <|
+                          opinionFooter address ("Agreement", "Exclusion") mval mexp
                       ]]
               else [])
 
 
 type alias Endorsement = Person
 
-viewEndorsement : Bool -> Endorsement -> Html
-viewEndorsement renderFooter person =
+viewEndorsement : Signal.Address BeliefAction
+               -> Bool
+               -> (Endorsement, Maybe Int, Maybe Int)
+               -> Html
+viewEndorsement address renderFooter (person, mval, mexp) =
   div [class "ui raised segment"] <|
     case person of
       PersonKnown x ->
@@ -169,11 +189,11 @@ viewEndorsement renderFooter person =
             , div [class "content"]
                 [text x]
             ]
-        , div [class "divider"] []
+        , div [class "ui divider"] []
         ] ++ (if renderFooter
               then [div [class "ui grid"]
-                      [ div [class "two column row"] <|
-                          opinionFooter ("Endorsement", "Exclusion")
+                      [ div [class "row"] <|
+                          opinionFooter address ("Endorsement", "Exclusion") mval mexp
                       ]]
               else [])
       PersonUnknown x ->
@@ -182,11 +202,11 @@ viewEndorsement renderFooter person =
             , div [class "content"]
                 [text x]
             ]
-        , div [class "divider"] []
+        , div [class "ui divider"] []
         ] ++ (if renderFooter
               then [div [class "ui grid"]
-                      [ div [class "two column row"] <|
-                          opinionFooter ("Endorsement", "Exclusion")
+                      [ div [class "row"] <|
+                          opinionFooter address ("Endorsement", "Exclusion") mval mexp
                       ]]
               else [])
 
@@ -195,16 +215,20 @@ type Belief
   | BeliefStatement   Statement
   | BeliefEndorsement Endorsement
 
+
 type alias Meta =
   { metaSubject : Person
   , metaBelief  : Belief
+  , metaMeasure : (Int, Int)
   }
 
 metaIcon : Html
 metaIcon = i [class "icon settings"] []
 
-viewMeta : Meta -> Html
-viewMeta meta =
+viewMeta : Signal.Address BeliefAction
+        -> (Meta, Maybe Int, Maybe Int)
+        -> Html
+viewMeta address (meta, mval, mexp) =
   div [class "ui raised segment"] <|
     [ div [class "ui header"]
         [ metaIcon
@@ -217,36 +241,76 @@ viewMeta meta =
             ]
         ]
     , case meta.metaBelief of
-        BeliefExistence e   -> viewExistence   False e
-        BeliefStatement s   -> viewStatement   False s
-        BeliefEndorsement e -> viewEndorsement False e
-    , div [class "divider"] []
+        BeliefExistence e   -> viewExistence  address False (e, Nothing, Nothing)
+        BeliefStatement s   -> viewStatement  address False (s, Nothing, Nothing)
+        BeliefEndorsement e -> viewEndorsement address False (e, Nothing, Nothing)
+    , div [class "ui grid two column"]
+        [ input [ type' "range"
+                , A.min "0"
+                , A.max "255"
+                , A.step "1"
+                , disabled True
+                , value <| toString <| fst meta.metaMeasure
+                ] []
+        , input [ type' "range"
+                , A.min "0"
+                , A.max "255"
+                , A.step "1"
+                , disabled True
+                , value <| toString <| snd meta.metaMeasure
+            ] []
+        ]
+    , div [class "ui divider"] []
     , div [class "ui grid"]
-        [ div [class "two column row"] <|
-            opinionFooter ("They Do Believe", "Exclusion")
+        [ div [class "row"] <|
+            opinionFooter address ("They Feel This Way", "Exclusion") mval mexp
         ]
     ]
 
-
-opinionFooter : (String, String)
+opinionFooter : Signal.Address BeliefAction
+             -> (String, String)
+             -> Maybe Int
+             -> Maybe Int
              -> List Html
-opinionFooter (l,r) =
-  [ div [class "column"]
-      [ div [class "ui blue label"]
+opinionFooter address (l,r) mval mexp =
+  [ div [class "six wide column"]
+      [ div [class "ui header"]
           [text l]
       , input [ type' "range"
-              , value "125"
+              , value <| toString <| Maybe.withDefault 125 mval
               , A.min "0"
-              , A.max "256"
+              , A.max "255"
+              , A.step "1"
+              , on "change" targetValue
+                  <| \x -> Signal.message address
+                        <| ChangedMeasure
+                        <| case toInt x of
+                             Err e -> Debug.crash e
+                             Ok x' -> x'
               ] []
       ]
-  , div [class "column"]
-      [ div [class "ui red label"]
+  , div [class "six wide column"]
+      [ div [class "ui red header"]
           [text r]
       , input [ type' "range"
-              , value "125"
+              , value <| toString <| Maybe.withDefault 0 mexp
               , A.min "0"
-              , A.max "256"
+              , A.max "255"
+              , A.step "1"
+              , on "change" targetValue
+                  <| \x -> Signal.message address
+                        <| ChangedExclusion
+                        <| case toInt x of
+                             Err e -> Debug.crash e
+                             Ok x' -> x'
+              ] []
+      ]
+  , div [class "four wide column bottom aligned"]
+      [ input [ type' "submit"
+              , value "Save"
+              , class <| "ui fluid button" ++ (case (mval, mexp) of
+                                                 (Nothing, Nothing) -> " disabled"
+                                                 _ -> " green")
               ] []
       ]
   ]
