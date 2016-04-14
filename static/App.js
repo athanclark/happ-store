@@ -1,1 +1,1 @@
-../frontend/dist/App.js
+../cooperate-frontend/dist/App.js
