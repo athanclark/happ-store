@@ -68,29 +68,35 @@ data AppResources
   | SemanticJsCdn
   | SemanticCss
   | SemanticCssCdn
+  | RangeSliderJs
+  | RangeSliderJsCdn
   | LessStyles
   | AppFrontend
   deriving (Show, Eq)
 
 instance ToPath AppResources Abs File where
-  toPath JQuery      = parseAbsFile "/jquery"
-  toPath SemanticJs  = parseAbsFile "/semantic"
-  toPath SemanticCss = parseAbsFile "/semantic"
-  toPath JQueryCdn   = parseAbsFile "/ajax/libs/jquery/3.0.0-beta1/jquery"
-  toPath SemanticJs  = parseAbsFile "/ajax/libs/semantic-ui/2.1.8/semantic"
-  toPath SemanticCss = parseAbsFile "/ajax/libs/semantic-ui/2.1.8/semantic"
-  toPath LessStyles  = parseAbsFile "/style"
-  toPath AppFrontend = parseAbsFile "/App"
+  toPath JQuery           = parseAbsFile "/jquery"
+  toPath SemanticJs       = parseAbsFile "/semantic"
+  toPath SemanticCss      = parseAbsFile "/semantic"
+  toPath JQueryCdn        = parseAbsFile "/ajax/libs/jquery/3.0.0-beta1/jquery"
+  toPath SemanticJsCdn    = parseAbsFile "/ajax/libs/semantic-ui/2.1.8/semantic"
+  toPath SemanticCssCdn   = parseAbsFile "/ajax/libs/semantic-ui/2.1.8/semantic"
+  toPath RangeSliderJs    = parseAbsFile "/rangeslider"
+  toPath RangeSliderJsCdn = parseAbsFile "/ajax/libs/rangeslider.js/2.1.1/rangeslider"
+  toPath LessStyles       = parseAbsFile "/style"
+  toPath AppFrontend      = parseAbsFile "/App"
 
 instance ToLocation AppResources Abs File where
-  toLocation JQuery         = (addFileExt "min.js"  . fromPath) <$> toPath JQuery
-  toLocation SemanticJs     = (addFileExt "min.js"  . fromPath) <$> toPath SemanticJs
-  toLocation SemanticCss    = (addFileExt "min.css" . fromPath) <$> toPath SemanticCss
-  toLocation JQueryCdn      = (addFileExt "min.js"  . fromPath) <$> toPath JQueryCdn
-  toLocation SemanticJsCdn  = (addFileExt "min.js"  . fromPath) <$> toPath SemanticJsCdn
-  toLocation SemanticCssCdn = (addFileExt "min.css" . fromPath) <$> toPath SemanticCssCdn
-  toLocation LessStyles     = (addFileExt "css"     . fromPath) <$> toPath LessStyles
-  toLocation AppFrontend    = (addFileExt "js"      . fromPath) <$> toPath AppFrontend
+  toLocation JQuery           = (addFileExt "min.js"  . fromPath) <$> toPath JQuery
+  toLocation SemanticJs       = (addFileExt "min.js"  . fromPath) <$> toPath SemanticJs
+  toLocation SemanticCss      = (addFileExt "min.css" . fromPath) <$> toPath SemanticCss
+  toLocation JQueryCdn        = (addFileExt "min.js"  . fromPath) <$> toPath JQueryCdn
+  toLocation SemanticJsCdn    = (addFileExt "min.js"  . fromPath) <$> toPath SemanticJsCdn
+  toLocation SemanticCssCdn   = (addFileExt "min.css" . fromPath) <$> toPath SemanticCssCdn
+  toLocation RangeSliderJs    = (addFileExt "min.js"  . fromPath) <$> toPath RangeSliderJs
+  toLocation RangeSliderJsCdn = (addFileExt "min.js"  . fromPath) <$> toPath RangeSliderJsCdn
+  toLocation LessStyles       = (addFileExt "css"     . fromPath) <$> toPath LessStyles
+  toLocation AppFrontend      = (addFileExt "js"      . fromPath) <$> toPath AppFrontend
 
 appendActiveWhen :: AppLinks -> Maybe AppLinks -> T.Text -> T.Text
 appendActiveWhen x (Just y) c | x == y = c <> " active"
