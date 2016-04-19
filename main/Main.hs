@@ -146,7 +146,19 @@ main = do
 
 -- | Entry point, post options parsing
 entry :: Int -> Env -> IO ()
-entry p env = run p (server' defApp)
+entry p env = do
+  mapM_ putStrLn
+    [ "Cooperate  Copyright (C) 2016  Athan Clark"
+    , "This program comes with ABSOLUTELY NO WARRANTY; for details see"
+    , "Section 15 of the GNU Public License version 3, available in the LICENSE"
+    , "file in the source distribution of this codebase, or at"
+    , "<http://www.gnu.org/licenses/gpl-3.0.en.html>."
+    , ""
+    , "This is free software, and you are welcome to redistribute it"
+    , "under certain conditions; see the GNU General Public License version 3"
+    , "for details."
+    ]
+  run p (server' defApp)
   where
     server'  = gzip def
              . logStdoutDev
