@@ -25,6 +25,8 @@ routes = do
   matchGroup (l_ "search" </> o_) $ do
     match (l_ "statements" </> wordChunk </> o_)
       statementsSearchHandle
+    match (l_ "objects" </> wordChunk </> o_)
+      statementsSearchHandle
   matchAny (action notFoundHandle)
   where
     homeHandle :: MonadApp m => ActionT m ()
@@ -42,9 +44,9 @@ routes = do
       xs <- liftIO (threadDelay 1000000)
       get $ do
         json $
-          [("Whut" :: T.Text)]
+          [("Whut" :: T.Text, "the" :: T.Text)]
           ++ case xs of
-               () -> ["yayuh"]
+               () -> [("yayuh", "hail")]
 
 
     wordChunk :: EitherUrlChunk ('Just T.Text)
