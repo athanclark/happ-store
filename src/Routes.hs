@@ -8,46 +8,46 @@
 module Routes where
 
 import Imports
-import Pages.Home
-import Pages.NotFound
-import Templates.Master
+import Handlers
 import qualified Data.Text as T
-import Data.Attoparsec.Text (takeWhile1)
 
-import Control.Concurrent (threadDelay)
-import Control.Monad.IO.Class (liftIO)
 
 
 routes :: ( MonadApp m
           ) => HandlerT (MiddlewareT m) sec m ()
 routes = do
   matchHere (action homeHandle)
-  matchGroup (l_ "search" </> o_) $ do
-    match (l_ "statements" </> wordChunk </> o_)
-      statementsSearchHandle
-    match (l_ "objects" </> wordChunk </> o_)
-      statementsSearchHandle
+  matchGroup (l_ "browse" </> o_) $ do
+    matchHere (action homeHandle)
+    match (l_ "view" </> wordChunk </> o_)
+      browseViewHandle
+    match (l_ "search" </> wordChunk </> o_)
+      browseSearchHandle
+  matchGroup (l_ "submit" </> o_) $ do
+    matchHere (action homeHandle)
+    matchGroup (l_ "search" </> o_) $ do
+      match (l_ "statements" </> wordChunk </> o_)
+        submitStatementsSearchHandle
+      match (l_ "objects" </> wordChunk </> o_)
+        submitObjectsSearchHandle
+      matchGroup (l_ "events" </> o_) $ do
+        match (wordChunk </> o_)
+          submitEventsNameSearchHandle
+        match (l_ "time" </> wordChunk </> o_)
+          submitEventsTimeSearchHandle
+      matchGroup (l_ "people" </> o_) $ do
+        match (l_ "known" </> wordChunk </> o_)
+          (submitPeopleSearchHandle PersonKnown)
+        match (l_ "unknown" </> wordChunk </> o_)
+          (submitPeopleSearchHandle PersonUnknown)
+        match (l_ "group" </> wordChunk </> o_)
+          (submitPeopleSearchHandle PeopleGroup)
+  matchGroup (l_ "people" </> o_) $ do
+    match (l_ "search" </> wordChunk </> o_)
+      peopleSearchHandle
+    match (l_ "view" </> wordChunk </> o_)
+      peopleViewHandle
+  matchGroup (l_ "login" </> o_) $ do
+    match (l_ "facebook" </> o_)
+      loginFacebookHandle
   matchAny (action notFoundHandle)
-  where
-    homeHandle :: MonadApp m => ActionT m ()
-    homeHandle = get $ html (Just AppHome) homePage
-
-    notFoundHandle :: MonadApp m => ActionT m ()
-    notFoundHandle = get $ do
-      htmlLight status404 notFoundContent
-      text "404 :("
-
-    statementsSearchHandle :: MonadApp m
-                           => T.Text
-                           -> MiddlewareT m
-    statementsSearchHandle x = action $ do
-      xs <- liftIO (threadDelay 1000000)
-      get $ do
-        json $
-          [("Whut" :: T.Text, "the" :: T.Text)]
-          ++ case xs of
-               () -> [("yayuh", "hail")]
-
-
-    wordChunk :: EitherUrlChunk ('Just T.Text)
-    wordChunk = p_ "word" . takeWhile1 $ const True

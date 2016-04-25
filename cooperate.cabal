@@ -18,6 +18,13 @@ Library
                         Application.Types
                         Pages.Home
                         Pages.NotFound
+                        Handlers
+                        Handlers.Browse
+                        Handlers.Chunks
+                        Handlers.People
+                        Handlers.Submit
+                        Handlers.App
+                        Handlers.Login
                         Routes
                         Templates.Master
                         Schema
@@ -68,6 +75,13 @@ Executable cooperate
                         Application.Types
                         Pages.Home
                         Pages.NotFound
+                        Handlers
+                        Handlers.Browse
+                        Handlers.Chunks
+                        Handlers.People
+                        Handlers.Submit
+                        Handlers.App
+                        Handlers.Login
                         Routes
                         Templates.Master
                         Schema
