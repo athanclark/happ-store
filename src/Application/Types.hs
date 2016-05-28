@@ -70,21 +70,25 @@ data AppResources
   | SemanticCssCdn
   | RangeSliderJs
   | RangeSliderJsCdn
+  | MathJaxCdn
+  | MathJax
   | LessStyles
   | AppFrontend
   deriving (Show, Eq)
 
 instance ToPath AppResources Abs File where
-  toPath JQuery           = parseAbsFile "/jquery"
-  toPath SemanticJs       = parseAbsFile "/semantic"
-  toPath SemanticCss      = parseAbsFile "/semantic"
+  toPath JQuery           = parseAbsFile "/vendor/jquery"
+  toPath SemanticJs       = parseAbsFile "/vendor/semantic"
+  toPath SemanticCss      = parseAbsFile "/vendor/semantic"
   toPath JQueryCdn        = parseAbsFile "/ajax/libs/jquery/3.0.0-beta1/jquery"
   toPath SemanticJsCdn    = parseAbsFile "/ajax/libs/semantic-ui/2.1.8/semantic"
   toPath SemanticCssCdn   = parseAbsFile "/ajax/libs/semantic-ui/2.1.8/semantic"
   toPath RangeSliderJs    = parseAbsFile "/rangeslider"
   toPath RangeSliderJsCdn = parseAbsFile "/ajax/libs/rangeslider.js/2.1.1/rangeslider"
+  toPath MathJax          = parseAbsFile "/vendor/MathJax"
+  toPath MathJaxCdn       = parseAbsFile "https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-MML-AM_CHTML"
   toPath LessStyles       = parseAbsFile "/style"
-  toPath AppFrontend      = parseAbsFile "/App"
+  toPath AppFrontend      = parseAbsFile "/Main"
 
 instance ToLocation AppResources Abs File where
   toLocation JQuery           = (addFileExt "min.js"  . fromPath) <$> toPath JQuery
@@ -95,8 +99,10 @@ instance ToLocation AppResources Abs File where
   toLocation SemanticCssCdn   = (addFileExt "min.css" . fromPath) <$> toPath SemanticCssCdn
   toLocation RangeSliderJs    = (addFileExt "min.js"  . fromPath) <$> toPath RangeSliderJs
   toLocation RangeSliderJsCdn = (addFileExt "min.js"  . fromPath) <$> toPath RangeSliderJsCdn
+  toLocation MathJax          = (addFileExt "js"      . fromPath) <$> toPath MathJax
+  toLocation MathJaxCdn       = (addFileExt "js"      . fromPath) <$> toPath MathJaxCdn
   toLocation LessStyles       = (addFileExt "css"     . fromPath) <$> toPath LessStyles
-  toLocation AppFrontend      = (addFileExt "js"      . fromPath) <$> toPath AppFrontend
+  toLocation AppFrontend      = (addFileExt "min.js"  . fromPath) <$> toPath AppFrontend
 
 appendActiveWhen :: AppLinks -> Maybe AppLinks -> T.Text -> T.Text
 appendActiveWhen x (Just y) c | x == y = c <> " active"

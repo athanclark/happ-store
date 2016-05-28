@@ -142,12 +142,12 @@ main = do
     opts = info (helper <*> app)
       ( fullDesc
      <> progDesc "Serve application from PORT over HOST"
-     <> header "compatable-opinions - a Haskell web server" )
+     <> header "Happ-Store - an app store for Hackage" )
 
 -- | Entry point, post options parsing
 entry :: Int -> Env -> IO ()
 entry p env = do
-  mapM_ putStrLn
+  putStrLn $ unlines
     [ "Cooperate  Copyright (C) 2016  Athan Clark"
     , "This program comes with ABSOLUTELY NO WARRANTY; for details see"
     , "Section 15 of the GNU Public License version 3, available in the LICENSE"
@@ -157,7 +157,14 @@ entry p env = do
     , "This is free software, and you are welcome to redistribute it"
     , "under certain conditions; see the GNU General Public License version 3"
     , "for details."
+    , ""
+    , "- port:       " <> show p
+    , "- hostname:   " <> showUrlAuthority (envAuthority env)
+    , "- cwd:        " <> envCwd env
+    , "- static:     " <> envStatic env
+    , "- production: " <> show (envProduction env)
     ]
+
   run p (server' defApp)
   where
     server'  = gzip def

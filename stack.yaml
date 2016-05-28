@@ -5,8 +5,8 @@
 # http://docs.haskellstack.org/en/stable/yaml_configuration/
 
 # A warning or info to be displayed to the user on config load.
-user-message: ! 'Warning: Specified resolver could not satisfy all dependencies. Some
-  external packages have been added as dependencies.
+user-message: ! 'Warning (added by new or init): Specified resolver could not satisfy
+  all dependencies. Some external packages have been added as dependencies.
 
   You can suppress this message by removing it from stack.yaml
 
@@ -23,7 +23,7 @@ user-message: ! 'Warning: Specified resolver could not satisfy all dependencies.
 # resolver:
 #  name: custom-snapshot
 #  location: "./custom-snapshot.yaml"
-resolver: nightly-2016-03-15
+resolver: nightly-2016-05-20
 
 # User packages to be built.
 # Various formats can be used as shown in the example below.
@@ -45,14 +45,10 @@ resolver: nightly-2016-03-15
 # will not be run. This is useful for tweaking upstream packages.
 packages:
 - '.'
-- './cooperate-lib'
 # Dependency packages to be pulled from upstream that are not in the resolver
 # (e.g., acme-missiles-0.3)
 extra-deps:
 - memcached-0.1.2
-- pandoc-1.16.0.2
-- text-1.2.2.0
-- yaml-0.8.16
 
 # Override default flag values for local packages and extra-deps
 flags: {}
@@ -65,7 +61,7 @@ extra-package-dbs: []
 # 
 # Require a specific version of stack, using version ranges
 # require-stack-version: -any # Default
-# require-stack-version: ">=1.0"
+# require-stack-version: ">=1.1"
 # 
 # Override the architecture used by stack, especially useful on Windows
 # arch: i386

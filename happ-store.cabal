@@ -1,10 +1,10 @@
-Name:                   cooperate
+Name:                   happ-store
 Version:                0.0.0
 Author:                 Athan Clark <athan.clark@gmail.com>
 Maintainer:             Athan Clark <athan.clark@gmail.com>
 License:                BSD3
 License-File:           LICENSE
-Synopsis:               A cooperation capability measurement app
+Synopsis:               A simple storage system for Hackage packages 
 -- Description:
 Cabal-Version:          >= 1.10
 Build-Type:             Simple
@@ -30,7 +30,6 @@ Library
                         Schema
                         Imports
   Build-Depends:        base >= 4.8 && < 5
-                      , cooperate-lib
                       , acid-state
                       , attoparsec
                       , bytestring
@@ -65,7 +64,7 @@ Library
                       , wai-middleware-content-type
                       , webpage
 
-Executable cooperate
+Executable happ-store
   Default-Language:     Haskell2010
   HS-Source-Dirs:       src
                       , main
@@ -87,7 +86,6 @@ Executable cooperate
                         Schema
                         Imports
   Build-Depends:        base >= 4.8 && < 5
-                      , cooperate-lib
                       , acid-state
                       , attoparsec
                       , aeson
@@ -139,4 +137,4 @@ Test-Suite spec
 
 Source-Repository head
   Type:                 git
-  Location:             git@github.com:athanclark/cooperate
+  Location:             git@github.com:athanclark/happ-store

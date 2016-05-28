@@ -1,1 +1,0 @@
-../cooperate-frontend/dist/App.js

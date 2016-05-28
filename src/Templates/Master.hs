@@ -9,6 +9,7 @@ module Templates.Master where
 import Imports hiding (FileExt (..))
 
 import qualified Data.Text as T
+import qualified Data.Text.Lazy.IO as LT
 import Web.Page.Lucid
 import Lucid
 import Data.Markup
@@ -53,12 +54,13 @@ masterPage :: MonadApp m => WebPage (HtmlT m ()) T.Text
 masterPage =
   let page :: MonadApp m => WebPage (HtmlT m ()) T.Text
       page = def
-  in  page { pageTitle = "Cooperate"
+  in  page { pageTitle = "hApp Store"
            , afterStylesScripts = scriptAssets
            , bodyScripts = elmScripts
            , styles = do
                styleAssets
                lessStyles
+           , metaVars = metaVars
            }
   where
     scriptAssets :: MonadApp m => HtmlT m ()
@@ -84,20 +86,26 @@ masterPage =
       hoist (`runAbsoluteUrlT` hostname) $ do
         app <- lift (toLocation AppFrontend)
         deploy JavaScript Remote app
-      deploy JavaScript Inline
-        ("var app = Elm.fullscreen(Elm.App);" :: T.Text)
+      cwd     <- envCwd <$> lift ask
+      initElm <- liftIO . LT.readFile $ cwd ++ "/frontend/init.js"
+      deploy JavaScript Inline initElm
 
     styleAssets :: MonadApp m => HtmlT m ()
     styleAssets = do
       hostname <- envAuthority <$> lift ask
       isProd <- envProduction <$> lift ask
       if isProd
-      then hoist (`runAbsoluteUrlT` cloudflareCdn) $ do
-             semantic <- lift (toLocation SemanticCssCdn)
-             deploy Css Remote semantic
+      then do hoist (`runAbsoluteUrlT` cloudflareCdn) $ do
+                semantic <- lift (toLocation SemanticCssCdn)
+                deploy Css Remote semantic
+              hoist (`runAbsoluteUrlT` mathjaxCdn) $ do
+                mathjax <- lift (toLocation MathJaxCdn)
+                deploy Css Remote mathjax
       else hoist (`runAbsoluteUrlT` hostname) $ do
              semantic <- lift (toLocation SemanticCss)
              deploy Css Remote semantic
+             mathjax <- lift (toLocation MathJax)
+             deploy Css Remote mathjax
 
     lessStyles :: MonadApp m => HtmlT m ()
     lessStyles = do
@@ -106,7 +114,14 @@ masterPage =
         lessStyles <- lift (toLocation LessStyles)
         deploy Css Remote lessStyles
 
+    metaVars :: MonadApp m => HtmlT m ()
+    metaVars = do
+      meta_ [charset_ "utf-8"]
+      meta_ [httpEquiv_ "X-UA-Compatible", content_ "IE=edge,chrome=1"]
+      meta_ [name_ "viewport", content_ "width=device-width, initial-scale=1.0, maximum-scale=1.0"]
+
     cloudflareCdn = UrlAuthority "https" True Nothing "cdnjs.cloudflare.com" Nothing
+    mathjaxCdn = UrlAuthority "https" True Nothing "cdn.mathjax.org" Nothing
 
 masterTemplate :: ( Monad m
                   ) => Maybe AppLinks
