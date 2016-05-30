@@ -10,6 +10,7 @@ import Ease
 
 import Task
 import Time exposing (Time, millisecond)
+import Color
 
 
 import Html.App        as App
@@ -35,30 +36,37 @@ isMobile s =
 
 
 type alias Model =
-  { nav         : Nav.Model
-  , screenSize  : ResponsiveScreen
+  { nav             : Nav.Model
+  , deviceWidth     : ResponsiveScreen
+  , height          : Int
   , sidebarDuration : Duration.Model Msg
+  , dimmer          : Float
   }
 
 type Msg
   = NavMsg Nav.Msg
-  | ChangedScreenWidth Int
+  | ChangeScreenWidth Int
+  | ChangeScreenHeight Int
+  | ChangeScreenSize Window.Size
   | DurationMsg (Duration.Msg Msg)
+  | ChangeDimmer Float
 
 
 init : (Model, Cmd Msg)
 init =
   let (newNav, navEff) = Nav.init
-  in  ( { nav         = newNav
-        , screenSize  = Mobile
+  in  ( { nav             = newNav
+        , deviceWidth     = Mobile
+        , height          = 0
+        , dimmer          = 0
         , sidebarDuration = Duration.init
         }
       , Cmd.batch
           [ Cmd.map NavMsg navEff
           , Task.perform
               Debug.crash
-              ChangedScreenWidth
-              Window.width
+              ChangeScreenSize
+              Window.size
           ]
       )
 
@@ -78,6 +86,8 @@ update action model =
                                          Ease.outQuad <| t / timeLength
                                      , mkCmd <| NavMsg <| Nav.ChangeVisibility <|
                                          Ease.outQuad <| t / timeLength
+                                     , mkCmd <| ChangeDimmer <|
+                                         Ease.inCubic <| t / timeLength
                                      ]
                             )
                             timeLength
@@ -88,8 +98,12 @@ update action model =
                              Err x -> x
                              Ok  x -> x) eff
           )
-    ChangedScreenWidth w ->
-      ( { model | screenSize =
+    ChangeScreenHeight h ->
+      ( { model | height = h }
+      , Cmd.none
+      )
+    ChangeScreenWidth w ->
+      ( { model | deviceWidth =
             if w > 1200
             then Large
             else if w > 992
@@ -98,6 +112,17 @@ update action model =
             then Tablet
             else Mobile
         }
+      , Cmd.none
+      )
+    ChangeScreenSize s ->
+      ( model
+      , Cmd.batch
+          [ mkCmd <| ChangeScreenHeight s.height
+          , mkCmd <| ChangeScreenWidth s.width
+          ]
+      )
+    ChangeDimmer d ->
+      ( { model | dimmer = d }
       , Cmd.none
       )
 
@@ -116,14 +141,23 @@ view model =
           ]
           [i [class "icon sidebar"] []]
   in  div [] <|
-        ( if isMobile model.screenSize
+        ( if isMobile model.deviceWidth
           then [mobileSidebar]
           else []
         ) ++
         [ div [ class "ui top fixed menu"
               , style <|
                   [ ( "border-bottom"
-                    , "2px solid violet"
+                    , let c' = Color.toHsl <| Color.rgb 238 130 238
+                          l = c'.lightness - (model.dimmer * (c'.lightness - 0.2))
+                          c = Color.toRgb <| Color.hsl c'.hue c'.saturation l
+                      in "2px solid rgb(" ++ toString c.red ++ ","
+                          ++ toString c.green ++ "," ++ toString c.blue ++ ")"
+                    )
+                  , ( "background"
+                    , let bg = Color.toRgb <| Color.hsl 0 0 (1 - (0.5 * model.dimmer))
+                      in  "rgb(" ++ toString bg.red ++ "," ++ toString bg.green
+                          ++ "," ++ toString bg.blue ++ ")"
                     )
                   ] ++ if model.nav.visibility > 0
                        then [ ( "left"
@@ -135,7 +169,7 @@ view model =
                             ]
                        else []
               ] <|
-            if isMobile model.screenSize
+            if isMobile model.deviceWidth
             then [mobileMenuButton]
             else List.map (App.map NavMsg) (Nav.view model.nav)
         , div [ class "pusher"
@@ -151,30 +185,50 @@ view model =
                        ]
                   else []
               ]
-            [ div [class "full height"]
-                [ div [ style [ ( "margin-top"
-                                , if isMobile model.screenSize
-                                  then "4em"
-                                  else "4em"
-                                )
-                              ]
+            [ div [class "full height"] <|
+                [ div [style [( "margin-top", "4em")]] []
+                , div [ class <| "ui grid"
+                          ++ if isMobile model.deviceWidth
+                             then ""
+                             else " container"
                       ]
-                    []
-                , div [class "ui container grid"]
-                    [ div [class "sixteen wide column"]
+                    [ div [ class "sixteen wide column"
+                          , style <|
+                              if isMobile model.deviceWidth
+                              then [ ("margin-left", "1rem")
+                                   , ("margin-right", "1rem")
+                                   ]
+                              else []
+                          ]
                         [ div [class "ui segment"]
                             [ text "Foo"
                             ]
                         ]
                     ]
-                ]
+                ] ++ if isMobile model.deviceWidth
+                     then [ div [ class <| "ui dimmer"
+                                    ++ if model.nav.visibility > 0
+                                       then " visible active"
+                                       else " hidden"
+                                , style [ ( "height"
+                                          , toString model.height ++ "px"
+                                          )
+                                        , ( "opacity"
+                                          , toString <| 0.8 * model.dimmer
+                                          )
+                                        ]
+                                , onClick <| DurationMsg <|
+                                    Duration.Reverse <| \_ -> Cmd.none
+                                ] []
+                          ]
+                     else []
             ]
         ]
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
   Sub.batch
-    [ Window.resizes (\x -> ChangedScreenWidth x.width)
+    [ Window.resizes ChangeScreenSize
     , Sub.map DurationMsg <| Duration.subscriptions model.sidebarDuration
     ]
 
