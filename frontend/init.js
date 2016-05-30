@@ -3,6 +3,12 @@ var app = Elm.Main.fullscreen();
 
 var fromApp = false;
 
+app.ports.askSHA.subscribe(function(string) {
+    var shaObj = new jsSHA("SHA-256", "TEXT");
+    shaObj.update(string);
+    var hash = shaObj.getHash("HEX");
+    app.ports.getSHA.send(hash);
+});
 // app.ports.mathjaxRaw.subscribe(function(x) {
 //     setTimeout(function() {
 //         MathJax.Hub.Queue(["Typeset",MathJax.Hub]);

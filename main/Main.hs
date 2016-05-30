@@ -1,6 +1,7 @@
 {-# LANGUAGE
     DeriveGeneric
   , ScopedTypeVariables
+  , OverloadedStrings
   #-}
 
 module Main where
@@ -15,6 +16,7 @@ import qualified Data.Aeson.Types as A
 import Network.Wai.Handler.Warp
 import Network.Wai.Middleware.Gzip
 import Network.Wai.Middleware.RequestLogger
+import System.Remote.Monitoring as Monitor
 
 import System.Directory
 import GHC.Generics
@@ -32,6 +34,7 @@ import Control.Monad
 -- | Application-wide options
 data AppOpts = AppOpts
   { port       :: Maybe Int
+  , monitor    :: Maybe Int
   , host       :: Maybe String
   , cwd        :: Maybe FilePath
   , static     :: Maybe FilePath
@@ -39,9 +42,11 @@ data AppOpts = AppOpts
   } deriving (Show, Eq, Generic)
 
 instance Monoid AppOpts where
-  mempty = AppOpts Nothing Nothing Nothing Nothing Nothing
-  mappend (AppOpts p1 h1 c1 s1 pr1) (AppOpts p2 h2 c2 s2 pr2) =
+  mempty = AppOpts Nothing Nothing Nothing Nothing Nothing Nothing
+  mappend (AppOpts p1 m1 h1 c1 s1 pr1)
+          (AppOpts p2 m2 h2 c2 s2 pr2) =
     AppOpts (getLast $ Last p1 <> Last p2)
+            (getLast $ Last m1 <> Last m2)
             (getLast $ Last h1 <> Last h2)
             (getLast $ Last c1 <> Last c2)
             (getLast $ Last s1 <> Last s2)
@@ -54,7 +59,7 @@ instance Y.FromJSON AppOpts where
   parseJSON = A.genericParseJSON A.defaultOptions
 
 instance Default AppOpts where
-  def = AppOpts (Just 3000) (Just "localhost") Nothing Nothing (Just False)
+  def = AppOpts (Just 3000) (Just 3001) (Just "localhost") Nothing Nothing (Just False)
 
 appOpts :: Parser AppOpts
 appOpts = AppOpts
@@ -63,6 +68,11 @@ appOpts = AppOpts
        <> short 'p'
        <> metavar "PORT"
        <> help "port to listen on - DEF: 3000" ))
+  <*> optional ( option auto
+        ( long "monitor"
+       <> short 'm'
+       <> metavar "MONITOR"
+       <> help "port for process monitor - DEF: 3001" ))
   <*> optional ( strOption
         ( long "host"
        <> short 'h'
@@ -122,6 +132,7 @@ main = do
       dirs       = AppOpts
                      Nothing
                      Nothing
+                     Nothing
                      (Just $ cwd' <> "/")
                      (Just $ cwd' <> "/static/")
                      Nothing
@@ -136,17 +147,19 @@ main = do
   case (cwdExists,staticExists) of
     (False,_) -> error $ "--cwd argument `"    <> cwdDir    <> "` does not exist"
     (_,False) -> error $ "--static argument `" <> staticDir <> "` does not exist"
-    _         -> entry (fromJust $ port config) (appOptsToEnv config)
+    _         -> entry (fromJust $ port config)
+                       (fromJust $ monitor config)
+                       (appOptsToEnv config)
   where
     opts :: ParserInfo App
     opts = info (helper <*> app)
       ( fullDesc
      <> progDesc "Serve application from PORT over HOST"
-     <> header "Happ-Store - an app store for Hackage" )
+     <> header "hApp-Store - an app store for Hackage" )
 
 -- | Entry point, post options parsing
-entry :: Int -> Env -> IO ()
-entry p env = do
+entry :: Int -> Int -> Env -> IO ()
+entry p m env = do
   putStrLn $ unlines
     [ "Cooperate  Copyright (C) 2016  Athan Clark"
     , "This program comes with ABSOLUTELY NO WARRANTY; for details see"
@@ -159,12 +172,14 @@ entry p env = do
     , "for details."
     , ""
     , "- port:       " <> show p
+    , "- monitor:    " <> show m
     , "- hostname:   " <> showUrlAuthority (envAuthority env)
     , "- cwd:        " <> envCwd env
     , "- static:     " <> envStatic env
     , "- production: " <> show (envProduction env)
     ]
 
+  Monitor.forkServer "localhost" m
   run p (server' defApp)
   where
     server'  = gzip def
@@ -181,7 +196,7 @@ entry p env = do
 -- | Note that this function will fail to pattern match on @Nothing@'s - use
 -- @def@ beforehand.
 appOptsToEnv :: AppOpts -> Env
-appOptsToEnv (AppOpts (Just p) (Just h) (Just c) (Just s) (Just pr)) =
+appOptsToEnv (AppOpts (Just p) _ (Just h) (Just c) (Just s) (Just pr)) =
   Env (UrlAuthority "http" True Nothing h (p <$ guard (p /= 80)))
     c s pr
 appOptsToEnv os = error $ "AppOpts improperly formatted: " ++ show os
