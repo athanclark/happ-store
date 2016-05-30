@@ -68,10 +68,10 @@ data AppResources
   | SemanticJsCdn
   | SemanticCss
   | SemanticCssCdn
-  | RangeSliderJs
-  | RangeSliderJsCdn
   | MathJaxCdn
   | MathJax
+  | JsSHACdn
+  | JsSHA
   | LessStyles
   | AppFrontend
   deriving (Show, Eq)
@@ -83,10 +83,10 @@ instance ToPath AppResources Abs File where
   toPath JQueryCdn        = parseAbsFile "/ajax/libs/jquery/3.0.0-beta1/jquery"
   toPath SemanticJsCdn    = parseAbsFile "/ajax/libs/semantic-ui/2.1.8/semantic"
   toPath SemanticCssCdn   = parseAbsFile "/ajax/libs/semantic-ui/2.1.8/semantic"
-  toPath RangeSliderJs    = parseAbsFile "/rangeslider"
-  toPath RangeSliderJsCdn = parseAbsFile "/ajax/libs/rangeslider.js/2.1.1/rangeslider"
   toPath MathJax          = parseAbsFile "/vendor/MathJax"
-  toPath MathJaxCdn       = parseAbsFile "https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-MML-AM_CHTML"
+  toPath MathJaxCdn       = parseAbsFile "/mathjax/latest/MathJax"
+  toPath JsSHACdn         = parseAbsFile "/ajax/libs/jsSHA/2.1.0/sha"
+  toPath JsSHA            = parseAbsFile "/vendor/jsSHA/src/sha"
   toPath LessStyles       = parseAbsFile "/style"
   toPath AppFrontend      = parseAbsFile "/Main"
 
@@ -97,10 +97,11 @@ instance ToLocation AppResources Abs File where
   toLocation JQueryCdn        = (addFileExt "min.js"  . fromPath) <$> toPath JQueryCdn
   toLocation SemanticJsCdn    = (addFileExt "min.js"  . fromPath) <$> toPath SemanticJsCdn
   toLocation SemanticCssCdn   = (addFileExt "min.css" . fromPath) <$> toPath SemanticCssCdn
-  toLocation RangeSliderJs    = (addFileExt "min.js"  . fromPath) <$> toPath RangeSliderJs
-  toLocation RangeSliderJsCdn = (addFileExt "min.js"  . fromPath) <$> toPath RangeSliderJsCdn
   toLocation MathJax          = (addFileExt "js"      . fromPath) <$> toPath MathJax
-  toLocation MathJaxCdn       = (addFileExt "js"      . fromPath) <$> toPath MathJaxCdn
+  toLocation MathJaxCdn       = (addQuery ("config", Just "TeX-MML-AM_CHTML")
+                                   . addFileExt "js"  . fromPath) <$> toPath MathJaxCdn
+  toLocation JsSHACdn         = (addFileExt "js"      . fromPath) <$> toPath JsSHACdn
+  toLocation JsSHA            = (addFileExt "js"      . fromPath) <$> toPath JsSHA
   toLocation LessStyles       = (addFileExt "css"     . fromPath) <$> toPath LessStyles
   toLocation AppFrontend      = (addFileExt "min.js"  . fromPath) <$> toPath AppFrontend
 

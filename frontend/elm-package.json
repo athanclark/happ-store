@@ -15,9 +15,10 @@
         "elm-lang/window": "1.0.0 <= v < 2.0.0",
         "elm-lang/navigation": "1.0.0 <= v < 2.0.0",
         "elm-community/easing-functions": "1.0.1 <= v < 2.0.0",
+        "eskimoblood/elm-color-extra": "3.0.2 <= v < 4.0.0",
         "evancz/elm-markdown": "3.0.0 <= v < 4.0.0",
-        "athanclark/elm-debouncer": "1.0.1 <= v < 2.0.0",
-        "athanclark/elm-every": "1.0.0 <= v < 2.0.0",
+        "athanclark/elm-debouncer": "2.0.0 <= v < 3.0.0",
+        "athanclark/elm-every": "2.0.0 <= v < 3.0.0",
         "athanclark/elm-duration": "5.0.0 <= v < 6.0.0",
         "athanclark/elm-discrete-transition": "1.1.1 <= v < 2.0.0"
     },

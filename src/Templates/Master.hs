@@ -68,17 +68,26 @@ masterPage =
       hostname <- envAuthority <$> lift ask
       isProd <- envProduction <$> lift ask
       if isProd
-      then hoist (`runAbsoluteUrlT` cloudflareCdn) $ do
-             jQuery <- lift (toLocation JQueryCdn)
-             deploy JavaScript Remote jQuery
-             semantic <- lift (toLocation SemanticJsCdn)
-             deploy JavaScript Remote semantic
+      then do hoist (`runAbsoluteUrlT` cloudflareCdn) $ do
+                jQuery <- lift (toLocation JQueryCdn)
+                deploy JavaScript Remote jQuery
+                semantic <- lift (toLocation SemanticJsCdn)
+                deploy JavaScript Remote semantic
+                jssha <- lift (toLocation JsSHACdn)
+                deploy JavaScript Remote jssha
+              hoist (`runAbsoluteUrlT` mathjaxCdn) $ do
+                mathjax <- lift (toLocation MathJaxCdn)
+                deploy JavaScript Remote mathjax
 
       else hoist (`runAbsoluteUrlT` hostname) $ do
              jQuery <- lift (toLocation JQuery)
              deploy JavaScript Remote jQuery
              semantic <- lift (toLocation SemanticJs)
              deploy JavaScript Remote semantic
+             mathjax <- lift (toLocation MathJax)
+             deploy JavaScript Remote mathjax
+             jssha <- lift (toLocation JsSHA)
+             deploy JavaScript Remote jssha
 
     elmScripts :: MonadApp m => HtmlT m ()
     elmScripts = do

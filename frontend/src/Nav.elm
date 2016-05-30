@@ -45,10 +45,7 @@ update action model =
 
 view : Model -> List (Html Msg)
 view model =
-    [ a [ class <| "item header"
-            ++ case model.currentPage of
-                 Links.Home -> " active"
-                 _          -> ""
+    [ a [ class "item header"
         , onClick <| ChangePage Links.Home
         ]
         [ text "hApp Store"
