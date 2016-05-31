@@ -2,6 +2,7 @@ module Main exposing (..)
 
 import Nav
 import Cmd.Extra exposing (mkCmd)
+import Session
 
 import Window
 import Navigation
@@ -41,6 +42,7 @@ type alias Model =
   , height          : Int
   , sidebarDuration : Duration.Model Msg
   , dimmer          : Float
+  , session         : Session.Model
   }
 
 type Msg
@@ -50,19 +52,27 @@ type Msg
   | ChangeScreenSize Window.Size
   | DurationMsg (Duration.Msg Msg)
   | ChangeDimmer Float
+  | SessionMsg Session.Msg
 
+
+-- type alias Flags =
+--   {
+--   }
 
 init : (Model, Cmd Msg)
 init =
   let (newNav, navEff) = Nav.init
+      (newSession, sessionEff) = Session.init
   in  ( { nav             = newNav
         , deviceWidth     = Mobile
         , height          = 0
         , dimmer          = 0
         , sidebarDuration = Duration.init
+        , session         = newSession
         }
       , Cmd.batch
           [ Cmd.map NavMsg navEff
+          , Cmd.map SessionMsg sessionEff
           , Task.perform
               Debug.crash
               ChangeScreenSize
@@ -77,6 +87,11 @@ update action model =
       let (newNav, eff) = Nav.update a model.nav
       in  ( { model | nav = newNav }
           , Cmd.map NavMsg eff
+          )
+    SessionMsg a ->
+      let (newSession, eff) = Session.update a model.session
+      in  ( { model | session = newSession }
+          , Cmd.map SessionMsg eff
           )
     DurationMsg a ->
       let timeLength = 500 * millisecond
@@ -169,9 +184,18 @@ view model =
                             ]
                        else []
               ] <|
-            if isMobile model.deviceWidth
-            then [mobileMenuButton]
+            let sessionButton =
+                  div [class "right menu"]
+                    [ App.map SessionMsg <|
+                        Session.viewMenuItem model.session
+                    ]
+            in if isMobile model.deviceWidth
+            then [ mobileMenuButton
+                 , sessionButton
+                 ]
             else List.map (App.map NavMsg) (Nav.view model.nav)
+              ++ [ sessionButton
+                 ]
         , div [ class "pusher"
               , style <|
                   if model.nav.visibility > 0
@@ -230,6 +254,7 @@ subscriptions model =
   Sub.batch
     [ Window.resizes ChangeScreenSize
     , Sub.map DurationMsg <| Duration.subscriptions model.sidebarDuration
+    , Sub.map SessionMsg <| Session.subscriptions
     ]
 
 

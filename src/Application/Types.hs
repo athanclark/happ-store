@@ -68,8 +68,6 @@ data AppResources
   | SemanticJsCdn
   | SemanticCss
   | SemanticCssCdn
-  | MathJaxCdn
-  | MathJax
   | JsSHACdn
   | JsSHA
   | LessStyles
@@ -77,14 +75,12 @@ data AppResources
   deriving (Show, Eq)
 
 instance ToPath AppResources Abs File where
-  toPath JQuery           = parseAbsFile "/vendor/jquery"
-  toPath SemanticJs       = parseAbsFile "/vendor/semantic"
-  toPath SemanticCss      = parseAbsFile "/vendor/semantic"
+  toPath JQuery           = parseAbsFile "/vendor/jquery/dist/jquery"
+  toPath SemanticJs       = parseAbsFile "/vendor/semantic-ui/dist/semantic"
+  toPath SemanticCss      = parseAbsFile "/vendor/semantic-ui/dist/semantic"
   toPath JQueryCdn        = parseAbsFile "/ajax/libs/jquery/3.0.0-beta1/jquery"
   toPath SemanticJsCdn    = parseAbsFile "/ajax/libs/semantic-ui/2.1.8/semantic"
   toPath SemanticCssCdn   = parseAbsFile "/ajax/libs/semantic-ui/2.1.8/semantic"
-  toPath MathJax          = parseAbsFile "/vendor/MathJax"
-  toPath MathJaxCdn       = parseAbsFile "/mathjax/latest/MathJax"
   toPath JsSHACdn         = parseAbsFile "/ajax/libs/jsSHA/2.1.0/sha"
   toPath JsSHA            = parseAbsFile "/vendor/jsSHA/src/sha"
   toPath LessStyles       = parseAbsFile "/style"
@@ -97,9 +93,6 @@ instance ToLocation AppResources Abs File where
   toLocation JQueryCdn        = (addFileExt "min.js"  . fromPath) <$> toPath JQueryCdn
   toLocation SemanticJsCdn    = (addFileExt "min.js"  . fromPath) <$> toPath SemanticJsCdn
   toLocation SemanticCssCdn   = (addFileExt "min.css" . fromPath) <$> toPath SemanticCssCdn
-  toLocation MathJax          = (addFileExt "js"      . fromPath) <$> toPath MathJax
-  toLocation MathJaxCdn       = (addQuery ("config", Just "TeX-MML-AM_CHTML")
-                                   . addFileExt "js"  . fromPath) <$> toPath MathJaxCdn
   toLocation JsSHACdn         = (addFileExt "js"      . fromPath) <$> toPath JsSHACdn
   toLocation JsSHA            = (addFileExt "js"      . fromPath) <$> toPath JsSHA
   toLocation LessStyles       = (addFileExt "css"     . fromPath) <$> toPath LessStyles

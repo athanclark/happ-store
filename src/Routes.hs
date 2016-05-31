@@ -29,6 +29,7 @@ routes = do
     match (l_ "view" </> wordChunk </> o_)
       peopleViewHandle
   matchGroup (l_ "login" </> o_) $ do
+    matchHere loginHandle
     match (l_ "facebook" </> o_)
       loginFacebookHandle
   matchAny (action notFoundHandle)

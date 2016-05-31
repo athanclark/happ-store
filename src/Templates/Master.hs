@@ -68,24 +68,19 @@ masterPage =
       hostname <- envAuthority <$> lift ask
       isProd <- envProduction <$> lift ask
       if isProd
-      then do hoist (`runAbsoluteUrlT` cloudflareCdn) $ do
-                jQuery <- lift (toLocation JQueryCdn)
-                deploy JavaScript Remote jQuery
-                semantic <- lift (toLocation SemanticJsCdn)
-                deploy JavaScript Remote semantic
-                jssha <- lift (toLocation JsSHACdn)
-                deploy JavaScript Remote jssha
-              hoist (`runAbsoluteUrlT` mathjaxCdn) $ do
-                mathjax <- lift (toLocation MathJaxCdn)
-                deploy JavaScript Remote mathjax
+      then hoist (`runAbsoluteUrlT` cloudflareCdn) $ do
+             jQuery <- lift (toLocation JQueryCdn)
+             deploy JavaScript Remote jQuery
+             semantic <- lift (toLocation SemanticJsCdn)
+             deploy JavaScript Remote semantic
+             jssha <- lift (toLocation JsSHACdn)
+             deploy JavaScript Remote jssha
 
       else hoist (`runAbsoluteUrlT` hostname) $ do
              jQuery <- lift (toLocation JQuery)
              deploy JavaScript Remote jQuery
              semantic <- lift (toLocation SemanticJs)
              deploy JavaScript Remote semantic
-             mathjax <- lift (toLocation MathJax)
-             deploy JavaScript Remote mathjax
              jssha <- lift (toLocation JsSHA)
              deploy JavaScript Remote jssha
 
@@ -104,24 +99,18 @@ masterPage =
       hostname <- envAuthority <$> lift ask
       isProd <- envProduction <$> lift ask
       if isProd
-      then do hoist (`runAbsoluteUrlT` cloudflareCdn) $ do
-                semantic <- lift (toLocation SemanticCssCdn)
-                deploy Css Remote semantic
-              hoist (`runAbsoluteUrlT` mathjaxCdn) $ do
-                mathjax <- lift (toLocation MathJaxCdn)
-                deploy Css Remote mathjax
+      then hoist (`runAbsoluteUrlT` cloudflareCdn) $ do
+             semantic <- lift (toLocation SemanticCssCdn)
+             deploy Css Remote semantic
       else hoist (`runAbsoluteUrlT` hostname) $ do
              semantic <- lift (toLocation SemanticCss)
              deploy Css Remote semantic
-             mathjax <- lift (toLocation MathJax)
-             deploy Css Remote mathjax
 
     lessStyles :: MonadApp m => HtmlT m ()
     lessStyles = do
-      hostname <- envAuthority <$> lift ask
-      hoist (`runAbsoluteUrlT` hostname) $ do
-        lessStyles <- lift (toLocation LessStyles)
-        deploy Css Remote lessStyles
+      cwd    <- envCwd <$> lift ask
+      styles <- liftIO . LT.readFile $ cwd ++ "/frontend/style.css"
+      deploy Css Inline styles
 
     metaVars :: MonadApp m => HtmlT m ()
     metaVars = do
@@ -130,7 +119,6 @@ masterPage =
       meta_ [name_ "viewport", content_ "width=device-width, initial-scale=1.0, maximum-scale=1.0"]
 
     cloudflareCdn = UrlAuthority "https" True Nothing "cdnjs.cloudflare.com" Nothing
-    mathjaxCdn = UrlAuthority "https" True Nothing "cdn.mathjax.org" Nothing
 
 masterTemplate :: ( Monad m
                   ) => Maybe AppLinks
