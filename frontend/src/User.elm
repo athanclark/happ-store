@@ -1,13 +1,24 @@
 module User exposing (..)
 
-import SHA
+import Json.Encode as JsonE
 
 
 type alias PlainCredentials =
   { username : String
-  , password : SHA.Hashed
+  , password : String
   }
+
 
 type Credentials
   = Plain PlainCredentials
 
+encodeCredentials : Credentials -> JsonE.Value
+encodeCredentials (Plain cs) =
+  JsonE.object
+    [ ( "username"
+      , JsonE.string cs.username
+      )
+    , ( "password"
+      , JsonE.string cs.password
+      )
+    ]

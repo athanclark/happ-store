@@ -9171,78 +9171,99 @@ var _danyx23$elm_uuid$Uuid$uuidGenerator = A2(_mgold$elm_random_pcg$Random_Pcg$m
 
 var _athanclark$happ_store$Session_Nonce$init = {
 	ctor: '_Tuple2',
-	_0: {
-		currentSeed: A2(_mgold$elm_random_pcg$Random_Pcg$initialSeed2, 0, 0),
-		currentNonce: _elm_lang$core$Maybe$Nothing
-	},
+	_0: {threads: _elm_lang$core$Dict$empty, threadId: 0},
 	_1: _elm_lang$core$Platform_Cmd$none
+};
+var _athanclark$happ_store$Session_Nonce$freshThreadId = function (model) {
+	return {
+		ctor: '_Tuple2',
+		_0: model.threadId,
+		_1: _elm_lang$core$Native_Utils.update(
+			model,
+			{threadId: model.threadId + 1})
+	};
 };
 var _athanclark$happ_store$Session_Nonce$askInitNonce = _elm_lang$core$Native_Platform.outgoingPort(
 	'askInitNonce',
 	function (v) {
-		return null;
+		return v;
 	});
-var _athanclark$happ_store$Session_Nonce$getInitNonce = _elm_lang$core$Native_Platform.incomingPort(
-	'getInitNonce',
-	A3(
-		_elm_lang$core$Json_Decode$tuple2,
-		F2(
-			function (x1, x2) {
-				return {ctor: '_Tuple2', _0: x1, _1: x2};
-			}),
-		_elm_lang$core$Json_Decode$int,
-		_elm_lang$core$Json_Decode$int));
-var _athanclark$happ_store$Session_Nonce$Model = F2(
-	function (a, b) {
-		return {currentSeed: a, currentNonce: b};
-	});
-var _athanclark$happ_store$Session_Nonce$SetFresh = function (a) {
-	return {ctor: 'SetFresh', _0: a};
-};
-var _athanclark$happ_store$Session_Nonce$subscriptions = _athanclark$happ_store$Session_Nonce$getInitNonce(_athanclark$happ_store$Session_Nonce$SetFresh);
-var _athanclark$happ_store$Session_Nonce$NewNonce$ = {ctor: 'NewNonce\''};
-var _athanclark$happ_store$Session_Nonce$update = F3(
-	function (fulfil, action, model) {
+var _athanclark$happ_store$Session_Nonce$update = F2(
+	function (action, model) {
 		var _p0 = action;
-		switch (_p0.ctor) {
-			case 'NewNonce':
-				return {
-					ctor: '_Tuple2',
-					_0: model,
-					_1: _athanclark$happ_store$Session_Nonce$askInitNonce(
-						{ctor: '_Tuple0'})
-				};
-			case 'NewNonce\'':
-				var _p1 = A2(_mgold$elm_random_pcg$Random_Pcg$step, _danyx23$elm_uuid$Uuid$uuidGenerator, model.currentSeed);
-				var newNonce = _p1._0;
-				var newSeed = _p1._1;
+		if (_p0.ctor === 'NewNonce') {
+			var _p1 = _athanclark$happ_store$Session_Nonce$freshThreadId(model);
+			var threadId = _p1._0;
+			var model$ = _p1._1;
+			return {
+				ctor: '_Tuple2',
+				_0: _elm_lang$core$Native_Utils.update(
+					model$,
+					{
+						threads: A3(_elm_lang$core$Dict$insert, threadId, _p0._0, model$.threads)
+					}),
+				_1: _athanclark$happ_store$Session_Nonce$askInitNonce(threadId)
+			};
+		} else {
+			var _p4 = _p0._0;
+			var _p2 = A2(_elm_lang$core$Dict$get, _p4.threadId, model.threads);
+			if (_p2.ctor === 'Nothing') {
+				return {ctor: '_Tuple2', _0: model, _1: _elm_lang$core$Platform_Cmd$none};
+			} else {
+				var _p3 = A2(
+					_mgold$elm_random_pcg$Random_Pcg$step,
+					_danyx23$elm_uuid$Uuid$uuidGenerator,
+					A2(_mgold$elm_random_pcg$Random_Pcg$initialSeed2, _p4.seed1, _p4.seed2));
+				var newNonce = _p3._0;
 				return {
 					ctor: '_Tuple2',
 					_0: _elm_lang$core$Native_Utils.update(
 						model,
 						{
-							currentSeed: newSeed,
-							currentNonce: _elm_lang$core$Maybe$Just(newNonce)
+							threads: A2(_elm_lang$core$Dict$remove, _p4.threadId, model.threads)
 						}),
 					_1: A2(
 						_elm_lang$core$Platform_Cmd$map,
 						_elm_lang$core$Result$Ok,
-						fulfil(newNonce))
+						_p2._0(newNonce))
 				};
-			default:
-				return {
-					ctor: '_Tuple2',
-					_0: _elm_lang$core$Native_Utils.update(
-						model,
-						{
-							currentSeed: A2(_elm_lang$core$Basics$uncurry, _mgold$elm_random_pcg$Random_Pcg$initialSeed2, _p0._0)
-						}),
-					_1: _athanclark$happ_store$Cmd_Extra$mkCmd(
-						_elm_lang$core$Result$Err(_athanclark$happ_store$Session_Nonce$NewNonce$))
-				};
+			}
 		}
 	});
-var _athanclark$happ_store$Session_Nonce$NewNonce = {ctor: 'NewNonce'};
+var _athanclark$happ_store$Session_Nonce$getInitNonce = _elm_lang$core$Native_Platform.incomingPort(
+	'getInitNonce',
+	A2(
+		_elm_lang$core$Json_Decode$andThen,
+		A2(_elm_lang$core$Json_Decode_ops[':='], 'seed1', _elm_lang$core$Json_Decode$int),
+		function (seed1) {
+			return A2(
+				_elm_lang$core$Json_Decode$andThen,
+				A2(_elm_lang$core$Json_Decode_ops[':='], 'seed2', _elm_lang$core$Json_Decode$int),
+				function (seed2) {
+					return A2(
+						_elm_lang$core$Json_Decode$andThen,
+						A2(_elm_lang$core$Json_Decode_ops[':='], 'threadId', _elm_lang$core$Json_Decode$int),
+						function (threadId) {
+							return _elm_lang$core$Json_Decode$succeed(
+								{seed1: seed1, seed2: seed2, threadId: threadId});
+						});
+				});
+		}));
+var _athanclark$happ_store$Session_Nonce$GetInitNonce = F3(
+	function (a, b, c) {
+		return {seed1: a, seed2: b, threadId: c};
+	});
+var _athanclark$happ_store$Session_Nonce$Model = F2(
+	function (a, b) {
+		return {threads: a, threadId: b};
+	});
+var _athanclark$happ_store$Session_Nonce$GotFresh = function (a) {
+	return {ctor: 'GotFresh', _0: a};
+};
+var _athanclark$happ_store$Session_Nonce$subscriptions = _athanclark$happ_store$Session_Nonce$getInitNonce(_athanclark$happ_store$Session_Nonce$GotFresh);
+var _athanclark$happ_store$Session_Nonce$NewNonce = function (a) {
+	return {ctor: 'NewNonce', _0: a};
+};
 
 var _athanclark$happ_store$Session_Data$init = {
 	ctor: '_Tuple2',
@@ -9417,13 +9438,24 @@ var _athanclark$happ_store$Session_Data$MkWithSession = F3(
 		return {ctor: 'MkWithSession', _0: a, _1: b, _2: c};
 	});
 
-var _athanclark$happ_store$SHA$askSHA = _elm_lang$core$Native_Platform.outgoingPort(
-	'askSHA',
-	function (v) {
-		return v;
-	});
-var _athanclark$happ_store$SHA$getSHA = _elm_lang$core$Native_Platform.incomingPort('getSHA', _elm_lang$core$Json_Decode$string);
-
+var _athanclark$happ_store$User$encodeCredentials = function (_p0) {
+	var _p1 = _p0;
+	var _p2 = _p1._0;
+	return _elm_lang$core$Json_Encode$object(
+		_elm_lang$core$Native_List.fromArray(
+			[
+				{
+				ctor: '_Tuple2',
+				_0: 'username',
+				_1: _elm_lang$core$Json_Encode$string(_p2.username)
+			},
+				{
+				ctor: '_Tuple2',
+				_0: 'password',
+				_1: _elm_lang$core$Json_Encode$string(_p2.password)
+			}
+			]));
+};
 var _athanclark$happ_store$User$PlainCredentials = F2(
 	function (a, b) {
 		return {username: a, password: b};
@@ -9807,21 +9839,12 @@ var _athanclark$happ_store$Session$Session = F2(
 	function (a, b) {
 		return {user: a, nonce: b};
 	});
-var _athanclark$happ_store$Session$Model = F4(
-	function (a, b, c, d) {
-		return {session: a, nonceState: b, dataState: c, tmpCredentials: d};
+var _athanclark$happ_store$Session$Model = F3(
+	function (a, b, c) {
+		return {session: a, nonceState: b, dataState: c};
 	});
 var _athanclark$happ_store$Session$LoginResponse = function (a) {
 	return {ctor: 'LoginResponse', _0: a};
-};
-var _athanclark$happ_store$Session$CheckedSession = function (a) {
-	return {ctor: 'CheckedSession', _0: a};
-};
-var _athanclark$happ_store$Session$MadeSession = function (a) {
-	return {ctor: 'MadeSession', _0: a};
-};
-var _athanclark$happ_store$Session$GotNonce = function (a) {
-	return {ctor: 'GotNonce', _0: a};
 };
 var _athanclark$happ_store$Session$DataMsg = function (a) {
 	return {ctor: 'DataMsg', _0: a};
@@ -9838,7 +9861,7 @@ var _athanclark$happ_store$Session$init = function () {
 	var nonceEff = _p1._1;
 	return {
 		ctor: '_Tuple2',
-		_0: {session: _elm_lang$core$Maybe$Nothing, nonceState: nonceModel, dataState: dataModel, tmpCredentials: _elm_lang$core$Maybe$Nothing},
+		_0: {session: _elm_lang$core$Maybe$Nothing, nonceState: nonceModel, dataState: dataModel},
 		_1: _elm_lang$core$Platform_Cmd$batch(
 			_elm_lang$core$Native_List.fromArray(
 				[
@@ -9851,58 +9874,10 @@ var _athanclark$happ_store$Session$update = F2(
 	function (action, model) {
 		var _p2 = action;
 		switch (_p2.ctor) {
-			case 'Login':
-				return {
-					ctor: '_Tuple2',
-					_0: _elm_lang$core$Native_Utils.update(
-						model,
-						{
-							tmpCredentials: _elm_lang$core$Maybe$Just(_p2._0)
-						}),
-					_1: _athanclark$happ_store$Cmd_Extra$mkCmd(
-						_athanclark$happ_store$Session$NonceMsg(_athanclark$happ_store$Session_Nonce$NewNonce))
-				};
-			case 'GotNonce':
-				return {
-					ctor: '_Tuple2',
-					_0: model,
-					_1: function () {
-						var _p3 = model.tmpCredentials;
-						if (_p3.ctor === 'Nothing') {
-							return _elm_lang$core$Native_Utils.crashCase(
-								'Session',
-								{
-									start: {line: 72, column: 9},
-									end: {line: 78, column: 48}
-								},
-								_p3)('somehow lock failed');
-						} else {
-							return _athanclark$happ_store$Task_Extra$performLog(
-								A3(
-									_evancz$elm_http$Http$post,
-									A2(_elm_lang$core$Json_Decode$map, _athanclark$happ_store$Session$LoginResponse, _elm_lang$core$Json_Decode$string),
-									'/login',
-									_evancz$elm_http$Http$string(
-										_danyx23$elm_uuid$Uuid$toString(_p2._0))));
-						}
-					}()
-				};
-			case 'LoginResponse':
-				return A2(
-					_elm_lang$core$Debug$log,
-					_p2._0,
-					{ctor: '_Tuple2', _0: model, _1: _elm_lang$core$Platform_Cmd$none});
 			case 'NonceMsg':
-				var _p5 = A3(
-					_athanclark$happ_store$Session_Nonce$update,
-					function (_p6) {
-						return _athanclark$happ_store$Cmd_Extra$mkCmd(
-							_athanclark$happ_store$Session$GotNonce(_p6));
-					},
-					_p2._0,
-					model.nonceState);
-				var newNonce = _p5._0;
-				var eff = _p5._1;
+				var _p3 = A2(_athanclark$happ_store$Session_Nonce$update, _p2._0, model.nonceState);
+				var newNonce = _p3._0;
+				var eff = _p3._1;
 				return {
 					ctor: '_Tuple2',
 					_0: _elm_lang$core$Native_Utils.update(
@@ -9911,19 +9886,19 @@ var _athanclark$happ_store$Session$update = F2(
 					_1: A2(
 						_elm_lang$core$Platform_Cmd$map,
 						function (r) {
-							var _p7 = r;
-							if (_p7.ctor === 'Err') {
-								return _athanclark$happ_store$Session$NonceMsg(_p7._0);
+							var _p4 = r;
+							if (_p4.ctor === 'Err') {
+								return _athanclark$happ_store$Session$NonceMsg(_p4._0);
 							} else {
-								return _p7._0;
+								return _p4._0;
 							}
 						},
 						eff)
 				};
 			case 'DataMsg':
-				var _p8 = A2(_athanclark$happ_store$Session_Data$update, _p2._0, model.dataState);
-				var newData = _p8._0;
-				var eff = _p8._1;
+				var _p5 = A2(_athanclark$happ_store$Session_Data$update, _p2._0, model.dataState);
+				var newData = _p5._0;
+				var eff = _p5._1;
 				return {
 					ctor: '_Tuple2',
 					_0: _elm_lang$core$Native_Utils.update(
@@ -9932,25 +9907,56 @@ var _athanclark$happ_store$Session$update = F2(
 					_1: A2(
 						_elm_lang$core$Platform_Cmd$map,
 						function (r) {
-							var _p9 = r;
-							if (_p9.ctor === 'Err') {
-								return _athanclark$happ_store$Session$DataMsg(_p9._0);
+							var _p6 = r;
+							if (_p6.ctor === 'Err') {
+								return _athanclark$happ_store$Session$DataMsg(_p6._0);
 							} else {
-								return _p9._0;
+								return _p6._0;
 							}
 						},
 						eff)
 				};
-			case 'MadeSession':
-				return {ctor: '_Tuple2', _0: model, _1: _elm_lang$core$Platform_Cmd$none};
+			case 'Login':
+				return {
+					ctor: '_Tuple2',
+					_0: model,
+					_1: _athanclark$happ_store$Cmd_Extra$mkCmd(
+						_athanclark$happ_store$Session$NonceMsg(
+							_athanclark$happ_store$Session_Nonce$NewNonce(
+								function (n) {
+									var data = _athanclark$happ_store$User$encodeCredentials(_p2._0);
+									return _athanclark$happ_store$Cmd_Extra$mkCmd(
+										_athanclark$happ_store$Session$DataMsg(
+											A3(
+												_athanclark$happ_store$Session_Data$MkWithSession,
+												n,
+												data,
+												function (s) {
+													return _athanclark$happ_store$Task_Extra$performLog(
+														A3(
+															_evancz$elm_http$Http$post,
+															A2(_elm_lang$core$Json_Decode$map, _athanclark$happ_store$Session$LoginResponse, _elm_lang$core$Json_Decode$string),
+															'/login',
+															_evancz$elm_http$Http$string(
+																A2(
+																	_elm_lang$core$Json_Encode$encode,
+																	0,
+																	_athanclark$happ_store$Session_Data$encodeWithSession(s)))));
+												})));
+								})))
+				};
 			default:
-				return {ctor: '_Tuple2', _0: model, _1: _elm_lang$core$Platform_Cmd$none};
+				return A2(
+					_elm_lang$core$Debug$log,
+					_p2._0,
+					{ctor: '_Tuple2', _0: model, _1: _elm_lang$core$Platform_Cmd$none});
 		}
 	});
 var _athanclark$happ_store$Session$subscriptions = _elm_lang$core$Platform_Sub$batch(
 	_elm_lang$core$Native_List.fromArray(
 		[
-			A2(_elm_lang$core$Platform_Sub$map, _athanclark$happ_store$Session$NonceMsg, _athanclark$happ_store$Session_Nonce$subscriptions)
+			A2(_elm_lang$core$Platform_Sub$map, _athanclark$happ_store$Session$NonceMsg, _athanclark$happ_store$Session_Nonce$subscriptions),
+			A2(_elm_lang$core$Platform_Sub$map, _athanclark$happ_store$Session$DataMsg, _athanclark$happ_store$Session_Data$subscriptions)
 		]));
 var _athanclark$happ_store$Session$Login = function (a) {
 	return {ctor: 'Login', _0: a};
@@ -9969,8 +9975,8 @@ var _athanclark$happ_store$Session$viewMenuItem = function (model) {
 		_elm_lang$core$Native_List.fromArray(
 			[
 				function () {
-				var _p10 = model.session;
-				if (_p10.ctor === 'Nothing') {
+				var _p7 = model.session;
+				if (_p7.ctor === 'Nothing') {
 					return _elm_lang$html$Html$text('login');
 				} else {
 					return _elm_lang$html$Html$text('sup dawg!');
@@ -11352,18 +11358,22 @@ var fromApp = false;
 
 
 // sha256
-app.ports.makeSHASession.subscribe(function(string) {
+app.ports.makeSHASession.subscribe(function(xs) {
     var shaObj = new jsSHA("SHA-512", "TEXT");
-    shaObj.update(string);
+    shaObj.update(xs.input);
     var hash = shaObj.getHash("HEX");
-    app.ports.madeSHASession.send(hash);
+    app.ports.madeSHASession.send({
+        threadId : xs.threadId,
+        output   : hash
+    });
 });
 
-app.ports.askInitNonce.subscribe(function(x) {
-    app.ports.getInitNonce.send(
-        [ Math.floor(Math.random() * 0xFFFFFFFF)
-        , Math.floor(Math.random() * 0xFFFFFFFF)
-        ]);
+app.ports.askInitNonce.subscribe(function(threadId) {
+    app.ports.getInitNonce.send({
+        seed1    : Math.floor(Math.random() * 0xFFFFFFFF),
+        seed2    : Math.floor(Math.random() * 0xFFFFFFFF),
+        threadId : threadId
+    });
 });
 
 // app.ports.mathjaxRaw.subscribe(function(x) {

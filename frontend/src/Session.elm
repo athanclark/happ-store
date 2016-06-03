@@ -30,19 +30,15 @@ type alias Session =
 
 
 type alias Model =
-  { session        : Maybe Session
-  , nonceState     : Nonce.Model
-  , dataState      : Data.Model Msg
-  , tmpCredentials : Maybe User.Credentials
+  { session    : Maybe Session
+  , nonceState : Nonce.Model Msg
+  , dataState  : Data.Model Msg
   }
 
 type Msg
   = Login User.Credentials
-  | NonceMsg Nonce.Msg
+  | NonceMsg (Nonce.Msg Msg)
   | DataMsg  (Data.Msg Msg)
-  | GotNonce Uuid.Uuid
-  | MadeSession Data.WithSession
-  | CheckedSession Bool
   | LoginResponse String
 
 init : (Model, Cmd Msg)
@@ -52,7 +48,6 @@ init =
   in  ( { session        = Nothing
         , nonceState     = nonceModel
         , dataState      = dataModel
-        , tmpCredentials = Nothing
         }
       , Cmd.batch
           [ Cmd.map NonceMsg nonceEff
@@ -63,48 +58,31 @@ init =
 update : Msg -> Model -> (Model, Cmd Msg)
 update action model =
   case action of
-    Login cs ->
-      ( { model | tmpCredentials = Just cs }
-      , mkCmd <| NonceMsg Nonce.NewNonce
-      )
-    GotNonce u ->
-      ( model
-      , case model.tmpCredentials of
-          Nothing -> Debug.crash "somehow lock failed"
-          Just cs -> Task.performLog
-          <| Http.post
-               (JsonD.map LoginResponse JsonD.string)
-               "/login"
-               (Http.string <| Uuid.toString u)
-      )
-    LoginResponse s -> Debug.log s
-      ( model
-      , Cmd.none
-      )
     NonceMsg a ->
-      let (newNonce, eff) = Nonce.update
-                              (mkCmd << GotNonce)
-                              a
-                              model.nonceState
+      let (newNonce, eff) = Nonce.update a model.nonceState
       in  ( { model | nonceState = newNonce }
           , Cmd.map (\r -> case r of
                              Err x -> NonceMsg x
                              Ok  x -> x) eff
           )
     DataMsg a ->
-      let (newData, eff) = Data.update
-                             a
-                             model.dataState
+      let (newData, eff) = Data.update a model.dataState
       in  ( { model | dataState = newData }
           , Cmd.map (\r -> case r of
                              Err x -> DataMsg x
                              Ok  x -> x) eff
           )
-    MadeSession s ->
+    Login cs ->
       ( model
-      , Cmd.none
+      , mkCmd <| NonceMsg <| Nonce.NewNonce <| \n ->
+        let data = User.encodeCredentials cs
+        in  mkCmd <| DataMsg <| Data.MkWithSession n data <| \s ->
+            Task.performLog <| Http.post
+              (JsonD.map LoginResponse JsonD.string)
+              "/login"
+              (Http.string <| JsonE.encode 0 <| Data.encodeWithSession s)
       )
-    CheckedSession s ->
+    LoginResponse s -> Debug.log s
       ( model
       , Cmd.none
       )
@@ -113,6 +91,7 @@ subscriptions : Sub Msg
 subscriptions =
   Sub.batch
     [ Sub.map NonceMsg Nonce.subscriptions
+    , Sub.map DataMsg  Data.subscriptions
     ]
 
 

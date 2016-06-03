@@ -6,18 +6,22 @@ var fromApp = false;
 
 
 // sha256
-app.ports.makeSHASession.subscribe(function(string) {
+app.ports.makeSHASession.subscribe(function(xs) {
     var shaObj = new jsSHA("SHA-512", "TEXT");
-    shaObj.update(string);
+    shaObj.update(xs.input);
     var hash = shaObj.getHash("HEX");
-    app.ports.madeSHASession.send(hash);
+    app.ports.madeSHASession.send({
+        threadId : xs.threadId,
+        output   : hash
+    });
 });
 
-app.ports.askInitNonce.subscribe(function(x) {
-    app.ports.getInitNonce.send(
-        [ Math.floor(Math.random() * 0xFFFFFFFF)
-        , Math.floor(Math.random() * 0xFFFFFFFF)
-        ]);
+app.ports.askInitNonce.subscribe(function(threadId) {
+    app.ports.getInitNonce.send({
+        seed1    : Math.floor(Math.random() * 0xFFFFFFFF),
+        seed2    : Math.floor(Math.random() * 0xFFFFFFFF),
+        threadId : threadId
+    });
 });
 
 // app.ports.mathjaxRaw.subscribe(function(x) {
