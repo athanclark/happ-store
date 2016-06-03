@@ -3,6 +3,7 @@
   , ConstraintKinds
   , FlexibleContexts
   , MultiParamTypeClasses
+  , DeriveGeneric
   #-}
 
 module Application.Types where
@@ -15,6 +16,7 @@ import Control.Monad.Logger
 import Control.Monad.Trans.Control
 import Control.Monad.Reader
 import Control.Monad.Catch
+import GHC.Generics
 
 
 type AppM a = LoggingT (ReaderT Env IO) a
@@ -101,3 +103,12 @@ instance ToLocation AppResources Abs File where
 appendActiveWhen :: AppLinks -> Maybe AppLinks -> T.Text -> T.Text
 appendActiveWhen x (Just y) c | x == y = c <> " active"
 appendActiveWhen _ _ c = c
+
+
+-- Exceptions
+
+data LoginException
+  = BadLoginData
+  deriving (Generic, Show)
+
+instance Exception LoginException

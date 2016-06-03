@@ -25,6 +25,7 @@ Library
                         Handlers.Submit
                         Handlers.App
                         Handlers.Login
+                        Handlers.Session
                         Routes
                         Templates.Master
                         Schema
@@ -32,10 +33,14 @@ Library
   Build-Depends:        base >= 4.8 && < 5
                       , acid-state
                       , attoparsec
+                      , aeson
+                      , base64-bytestring
                       , bytestring
                       , containers
+                      , cryptonite
                       , data-default
                       , directory
+                      , errors
                       , exceptions
                       , hashable
                       , http-types
@@ -43,6 +48,7 @@ Library
                       , lucid
                       , markup >= 3.1.0
                       , memcached
+                      , memory
                       , mmorph
                       , monad-control
                       , monad-logger
@@ -58,6 +64,7 @@ Library
                       , unordered-containers >= 0.2
                       , urlpath >= 5.0.0.1
                       , uuid
+                      , utf8-string
                       , wai
                       , wai-extra
                       , wai-transformers >= 0.0.3
@@ -81,6 +88,7 @@ Executable happ-store
                         Handlers.Submit
                         Handlers.App
                         Handlers.Login
+                        Handlers.Session
                         Routes
                         Templates.Master
                         Schema
@@ -89,11 +97,14 @@ Executable happ-store
                       , acid-state
                       , attoparsec
                       , aeson
+                      , base64-bytestring
                       , bytestring
                       , containers
+                      , cryptonite
                       , directory
                       , data-default
                       , ekg
+                      , errors
                       , exceptions
                       , hashable
                       , http-types
@@ -101,6 +112,7 @@ Executable happ-store
                       , lucid
                       , markup
                       , memcached
+                      , memory
                       , mmorph
                       , monad-control
                       , monad-logger
@@ -117,6 +129,7 @@ Executable happ-store
                       , urlpath
                       , unordered-containers >= 0.2
                       , uuid
+                      , utf8-string
                       , warp
                       , wai-extra
                       , wai-transformers

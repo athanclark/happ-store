@@ -32,4 +32,6 @@ routes = do
     matchHere loginHandle
     match (l_ "facebook" </> o_)
       loginFacebookHandle
+  matchGroup (l_ "session" </> o_) $
+    matchHere sessionHandle
   matchAny (action notFoundHandle)

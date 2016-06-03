@@ -9,7 +9,7 @@ var fromApp = false;
 app.ports.makeSHASession.subscribe(function(xs) {
     var shaObj = new jsSHA("SHA-512", "TEXT");
     shaObj.update(xs.input);
-    var hash = shaObj.getHash("HEX");
+    var hash = shaObj.getHash("B64");
     app.ports.madeSHASession.send({
         threadId : xs.threadId,
         output   : hash
