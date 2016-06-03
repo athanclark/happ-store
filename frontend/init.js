@@ -4,12 +4,13 @@ var app = Elm.Main.fullscreen(
 
 var fromApp = false;
 
+
 // sha256
-app.ports.askSHA.subscribe(function(string) {
-    var shaObj = new jsSHA("SHA-256", "TEXT");
+app.ports.makeSHASession.subscribe(function(string) {
+    var shaObj = new jsSHA("SHA-512", "TEXT");
     shaObj.update(string);
     var hash = shaObj.getHash("HEX");
-    app.ports.getSHA.send(hash);
+    app.ports.madeSHASession.send(hash);
 });
 
 app.ports.askInitNonce.subscribe(function(x) {

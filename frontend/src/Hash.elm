@@ -7,7 +7,6 @@ module Hash exposing
 
 import SHA
 
-type alias Hashed = SHA.Hashed
 
 type Msg
   = GetHash String
