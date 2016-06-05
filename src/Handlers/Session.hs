@@ -8,9 +8,13 @@ module Handlers.Session where
 import Handlers.Chunks
 import Handlers.App
 
+import Session
+
 import Imports
 import qualified Data.Text as T
+import Data.Aeson as A hiding (json)
 import Control.Monad.IO.Class (liftIO)
+import Control.Monad.Catch
 
 import Crypto.Hash
 import Data.ByteString.Base64
@@ -22,11 +26,14 @@ import Data.UUID as UUID
 
 sessionHandle :: MonadApp m
               => MiddlewareT m
-sessionHandle = action $ do
-  post uploader $
-    json ("ayyy" :: T.Text)
-  where
-    uploader :: MonadApp m => Request -> m ()
-    uploader r = do
-      liftIO $ print =<< strictRequestBody r
-      return ()
+sessionHandle app req respond =
+  let handle = action $
+        post $ do
+          ml <- liftIO $ A.decode <$> strictRequestBody req
+          l  <- case ml of
+                  Nothing -> throwM BadSessionFormat
+                  Just x  -> pure (x :: SessionRequest T.Text)
+          l' <- withSession l $ \_ ->
+                  pure ("pong" :: T.Text)
+          json l'
+  in  handle app req respond

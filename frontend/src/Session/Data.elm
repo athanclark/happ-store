@@ -1,6 +1,8 @@
 port module Session.Data exposing
   ( WithSession
+  , Hashed
   , encodeWithSession
+  , decodeWithSession
   , Model
   , Msg (MkWithSession, CkWithSession)
   , init
@@ -15,7 +17,7 @@ Note that this module should be used as a singleton
 import Session.Nonce as Nonce
 import Uuid
 import Json.Encode as JsonE
-import Json.Decode as JsonD
+import Json.Decode as JsonD exposing (Decoder, (:=))
 import Cmd.Extra exposing (mkCmd)
 import Task
 import Dict exposing (Dict)
@@ -39,6 +41,8 @@ type alias MadeSHASession =
 
 port madeSHASession : (MadeSHASession -> a) -> Sub a
 
+
+
 type alias WithSession =
   { nonce : Nonce.Nonce
   , data  : JsonE.Value
@@ -51,13 +55,21 @@ encodeWithSession { nonce, data, hash } =
     [ ( "nonce"
       , JsonE.string <| Uuid.toString nonce
       )
-    , ( "data"
-      , data
+    , ( "data", data
       )
-    , ( "hash"
-      , JsonE.string hash
+    , ( "hash", JsonE.string hash
       )
     ]
+
+decodeWithSession : Decoder WithSession
+decodeWithSession =
+  JsonD.object3 WithSession
+    ("nonce" := JsonD.string `JsonD.andThen` \s ->
+                  case Uuid.fromString s of
+                    Nothing -> JsonD.fail "improperly formatted UUID"
+                    Just x  -> JsonD.succeed x)
+    ("data" := JsonD.value)
+    ("hash" := JsonD.string)
 
 -- Creation
 
@@ -75,7 +87,7 @@ freshThreadId model =
 
 type Msg a
   = MkWithSession Nonce.Nonce JsonE.Value (WithSession -> Cmd a)
-  | CkWithSession WithSession (Bool -> Cmd a)
+  | CkWithSession Hashed WithSession (Bool -> Cmd a)
   | GotHash MadeSHASession
 
 init : (Model a, Cmd (Msg a))
@@ -107,7 +119,7 @@ update action model =
               , input    = nonce' ++ data'
               }
           )
-    CkWithSession session onComplete ->
+    CkWithSession lastHash session onComplete ->
       let nonce' = Uuid.toString session.nonce
           data'  = JsonE.encode 0 session.data
           (threadId, model') = freshThreadId model
@@ -118,7 +130,7 @@ update action model =
             }
           , makeSHASession
               { threadId = threadId
-              , input    = nonce' ++ data'
+              , input    = nonce' ++ data' ++ lastHash
               }
           )
     GotHash hashed ->

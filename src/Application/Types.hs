@@ -12,11 +12,15 @@ import Path.Extended
 import qualified Data.Text as T
 import Data.Monoid
 import Data.Url
+import Data.TimeMap
+import Data.UUID
+import Data.ByteString (ByteString)
 import Control.Monad.Logger
 import Control.Monad.Trans.Control
 import Control.Monad.Reader
 import Control.Monad.Catch
 import GHC.Generics
+import Data.Typeable
 
 
 type AppM a = LoggingT (ReaderT Env IO) a
@@ -37,8 +41,13 @@ type MonadApp m =
   , MonadReader Env m
   , MonadUrl Abs File m
   , MonadBaseControl IO m
+  , Typeable m
   )
 
+-- A cache is a time-indexed mapping from nonces to accrued hashings
+-- TODO: UserId also
+type SessionCache = TimeMap UUID Hashed
+type Hashed = ByteString
 
 -- The environment accessible from our application
 data Env = Env
@@ -46,7 +55,19 @@ data Env = Env
   , envCwd        :: FilePath -- ^ for File Processing
   , envStatic     :: FilePath
   , envProduction :: Bool
-  } deriving (Show, Eq)
+  , envSession    :: SessionCache
+  }
+
+instance Show Env where
+  show (Env a c s p _) =
+    "Env {envAuthority = " ++ show a ++ ", envCwd = "
+                           ++ show c ++ ", envStatic = "
+                           ++ show s ++ ", envProduction = "
+                           ++ show p ++ ", envSession = <session>}"
+
+instance Eq Env where
+  (Env a1 c1 s1 p1 _) == (Env a2 c2 s2 p2 _) =
+    a1 == a2 && c1 == c2 && s1 == s2 && p1 == p2
 
 -- | Data type representing top navigation bar
 data AppLinks
@@ -107,8 +128,17 @@ appendActiveWhen _ _ c = c
 
 -- Exceptions
 
+data SessionException
+  = InvalidSessionHash
+  | BadSessionFormat
+  | NonexistentNonce
+  deriving (Generic, Show)
+
+instance Exception SessionException
+
 data LoginException
-  = BadLoginData
+  = BadLoginFormat
+  | InvalidLoginHash
   deriving (Generic, Show)
 
 instance Exception LoginException

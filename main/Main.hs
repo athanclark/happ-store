@@ -17,6 +17,13 @@ import Network.Wai.Handler.Warp
 import Network.Wai.Middleware.Gzip
 import Network.Wai.Middleware.RequestLogger
 import System.Remote.Monitoring as Monitor
+import Data.TimeMap as TM
+import Data.HashSet as HS
+import qualified Data.ByteString.Base64 as BS
+import Control.Arrow (second)
+import Control.Monad (when)
+import Control.Concurrent.STM (atomically)
+import Control.Concurrent
 
 import System.Directory
 import GHC.Generics
@@ -147,9 +154,11 @@ main = do
   case (cwdExists,staticExists) of
     (False,_) -> error $ "--cwd argument `"    <> cwdDir    <> "` does not exist"
     (_,False) -> error $ "--static argument `" <> staticDir <> "` does not exist"
-    _         -> entry (fromJust $ port config)
-                       (fromJust $ monitor config)
-                       (appOptsToEnv config)
+    _         -> do
+      env <- appOptsToEnv config
+      entry (fromJust $ port config)
+            (fromJust $ monitor config)
+            env
   where
     opts :: ParserInfo App
     opts = info (helper <*> app)
@@ -179,7 +188,18 @@ entry p m env = do
     , "- production: " <> show (envProduction env)
     ]
 
-  Monitor.forkServer "localhost" m
+  Monitor.forkServer "localhost" m -- monitor
+  forkIO $ -- session cleaner
+    forever $ do
+      let sessionCache = envSession env
+      unless (envProduction env) $ do
+        nonces <- atomically $ zip <$> (HS.toList <$> TM.keys sessionCache)
+                                   <*> TM.elems sessionCache
+        putStrLn $ "Current Cache: " ++ show (fmap (second BS.encode) nonces)
+      let secondPico = 1000000
+          secondDiff = 1
+      TM.filterFromNow (60 * secondDiff) sessionCache
+      threadDelay (5 * secondPico)
   run p (server' defApp)
   where
     server'  = gzip def
@@ -195,8 +215,14 @@ entry p m env = do
 
 -- | Note that this function will fail to pattern match on @Nothing@'s - use
 -- @def@ beforehand.
-appOptsToEnv :: AppOpts -> Env
-appOptsToEnv (AppOpts (Just p) _ (Just h) (Just c) (Just s) (Just pr)) =
-  Env (UrlAuthority "http" True Nothing h (p <$ guard (p /= 80)))
-    c s pr
+appOptsToEnv :: AppOpts -> IO Env
+appOptsToEnv (AppOpts (Just p)
+                      _
+                      (Just h)
+                      (Just c)
+                      (Just s)
+                      (Just pr)) = do
+  t <- atomically newTimeMap
+  let auth = UrlAuthority "http" True Nothing h $ p <$ guard (p /= 80)
+  pure $ Env auth c s pr t
 appOptsToEnv os = error $ "AppOpts improperly formatted: " ++ show os

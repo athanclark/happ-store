@@ -5,34 +5,36 @@
 
 module Handlers.Login where
 
+import Session
+
 import Handlers.Chunks
 import Handlers.App
 
 import Imports
-import qualified Data.Text as T
+
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Catch
+import Control.Monad.Reader
 import Control.Applicative
-import Control.Error
+import Control.Monad
+import Control.Concurrent.STM (atomically)
 import Data.Monoid
 
 import Data.Aeson as A hiding (json)
+import Data.TimeMap as TM
+import qualified Data.Text as T
 import Crypto.Hash
 import qualified Data.ByteString        as BS
 import qualified Data.ByteString.Lazy   as BSL
 import qualified Data.ByteString.Base64 as BS64
 import qualified Data.ByteString.UTF8   as BSU8
 import Data.ByteArray (convert)
-import Data.UUID.V4
 import Data.UUID as UUID
+import Data.UUID as UUID
+import Data.UUID.V4 as UUID
 
 
-fromMaybeA :: (Alternative f, Monad f) => f (Maybe a) -> f a
-fromMaybeA mxs = do
-  mx <- mxs
-  case mx of
-    Nothing -> empty
-    Just x  -> pure x
+
 
 
 data LoginCredentials = LoginPlain
@@ -55,51 +57,44 @@ instance ToJSON LoginCredentials where
       , "password" .= password ls
       ]
 
-data LoginRequest = LoginRequest
-  { loginNonce       :: UUID
-  , loginCredentials :: LoginCredentials
-  , loginHash        :: BS.ByteString
-  } deriving (Show, Eq)
 
-instance FromJSON LoginRequest where
-  parseJSON (Object o) = do
-    n  <- fromMaybeA $ UUID.fromString <$> o .: "nonce"
-    cs <- parseJSON . Object =<< o .: "data"
-    h  <- fromMaybeA $ (hush . BS64.decode . BSU8.fromString) <$> o .: "hash"
-    return $ LoginRequest n cs h
-  parseJSON _ = empty
+checkLoginRequest :: ( MonadApp m
+                     ) => SessionRequest LoginCredentials
+                       -> m (SessionRequest T.Text)
+checkLoginRequest s = do
+  let data'  = BSL.toStrict . A.encode $ sessionData s
+      nonce' = BSU8.fromString . UUID.toString $ sessionNonce s
+      expectedHash :: Digest SHA512
+      expectedHash = hash $ nonce' <> data'
+  when (convert expectedHash /= sessionHash s) $ throwM InvalidLoginHash
+  -- TODO: lookup user, etc.
+  sessionCache <- envSession <$> ask
+  newNonce <- liftIO UUID.nextRandom
+  let payload   = "login success!" :: T.Text
+      payload'  = BSL.toStrict $ A.encode payload
+      newNonce' = BSU8.fromString $ UUID.toString newNonce
+      newHash  :: Digest SHA512
+      newHash   = hash $ newNonce' <> payload' <> BS64.encode (convert expectedHash)
+  liftIO $
+    TM.insert newNonce (convert newHash) sessionCache
+  return $ SessionRequest newNonce payload $ convert newHash
 
-instance ToJSON LoginRequest where
-  toJSON ls =
-    object
-      [ "nonce" .= UUID.toString (loginNonce ls)
-      , "data" .= loginCredentials ls
-      , "hash" .= BSU8.toString (BS64.encode $ loginHash ls)
-      ]
-
-checkLoginRequest :: LoginRequest -> Bool
-checkLoginRequest l =
-  let data' = BSL.toStrict . A.encode $ loginCredentials l
-      nonce = BSU8.fromString . UUID.toString $ loginNonce l
-      hash' :: Digest SHA512
-      hash'  = hash $ nonce <> data'
-  in  convert hash' == loginHash l
 
 loginHandle :: MonadApp m
             => MiddlewareT m
-loginHandle = action $ do
-  post uploader $ json ("ayyy" :: T.Text)
-  where
-    uploader :: MonadApp m => Request -> m ()
-    uploader r = do
-      liftIO $ do
-        ml <- A.decode <$> strictRequestBody r :: IO (Maybe LoginRequest)
-        case ml of
-          Nothing -> throwM BadLoginData
-          Just l -> do
+loginHandle app req respond =
+  let handle = action $
+        post $ do
+          ml <- liftIO $ A.decode <$> strictRequestBody req
+          l  <- case ml of
+                  Nothing -> throwM BadLoginFormat
+                  Just x  -> pure x
+          l' <- checkLoginRequest l
+          liftIO $ do
             putStrLn $ "Login Request:\n" ++ show l
-            putStrLn $ "Is Legit: " ++ show (checkLoginRequest l)
-      return ()
+            putStrLn $ "Login Response:\n" ++ show l'
+          json l'
+  in  handle app req respond
 
 loginFacebookHandle :: MonadApp m
                     => MiddlewareT m

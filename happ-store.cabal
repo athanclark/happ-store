@@ -29,6 +29,7 @@ Library
                         Routes
                         Templates.Master
                         Schema
+                        Session
                         Imports
   Build-Depends:        base >= 4.8 && < 5
                       , acid-state
@@ -53,21 +54,24 @@ Library
                       , monad-control
                       , monad-logger
                       , mtl
-                      , nested-routes >= 7.0.0
+                      , nested-routes >= 7.1.1
                       , path-extra >= 0.0.3
                       , regex-compat
                       , resourcet
                       , safecopy
+                      , stm
                       , text
                       , transformers
                       , time
+                      , timemap
                       , unordered-containers >= 0.2
                       , urlpath >= 5.0.0.1
                       , uuid
                       , utf8-string
                       , wai
                       , wai-extra
-                      , wai-transformers >= 0.0.3
+                      , wai-transformers >= 0.0.5
+                      , wai-middleware-verbs >= 0.3.0
                       , wai-middleware-content-type
                       , webpage
 
@@ -92,6 +96,7 @@ Executable happ-store
                         Routes
                         Templates.Master
                         Schema
+                        Session
                         Imports
   Build-Depends:        base >= 4.8 && < 5
                       , acid-state
@@ -123,9 +128,11 @@ Executable happ-store
                       , regex-compat
                       , resourcet
                       , safecopy
+                      , stm
                       , text
                       , transformers
                       , time
+                      , timemap
                       , urlpath
                       , unordered-containers >= 0.2
                       , uuid
