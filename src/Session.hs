@@ -27,7 +27,7 @@ import Data.ByteArray (convert)
 import Data.UUID.V4 as UUID
 import Data.UUID as UUID
 
-
+import Debug.Trace
 
 
 data SessionRequest a = SessionRequest
@@ -76,7 +76,7 @@ withSession s f = do
   let data'  = BSL.toStrict . A.encode $ sessionData s
       nonce' = BSU8.fromString . UUID.toString $ sessionNonce s
       expectedHash :: Digest SHA512
-      expectedHash = hash $ nonce' <> data' <> storedHash
+      expectedHash = hash $ nonce' <> data' <> BS64.encode storedHash
   if convert expectedHash /= sessionHash s
   then throwM InvalidSessionHash
   else do

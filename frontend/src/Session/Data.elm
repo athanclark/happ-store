@@ -86,7 +86,7 @@ freshThreadId model =
   )
 
 type Msg a
-  = MkWithSession Nonce.Nonce JsonE.Value (WithSession -> Cmd a)
+  = MkWithSession Nonce.Nonce JsonE.Value (Maybe Hashed) (WithSession -> Cmd a)
   | CkWithSession Hashed WithSession (Bool -> Cmd a)
   | GotHash MadeSHASession
 
@@ -105,7 +105,7 @@ update : Msg a
       -> (Model a, Cmd (Result (Msg a) a))
 update action model =
   case action of
-    MkWithSession nonce data onComplete ->
+    MkWithSession nonce data mLastHash onComplete ->
       let nonce' = Uuid.toString nonce
           data'  = JsonE.encode 0 data
           (threadId, model') = freshThreadId model
@@ -116,7 +116,7 @@ update action model =
             }
           , makeSHASession
               { threadId = threadId
-              , input    = nonce' ++ data'
+              , input    = nonce' ++ data' ++ Maybe.withDefault "" mLastHash
               }
           )
     CkWithSession lastHash session onComplete ->

@@ -79,7 +79,7 @@ Executable happ-store
   Default-Language:     Haskell2010
   HS-Source-Dirs:       src
                       , main
-  GHC-Options:          -Wall
+  GHC-Options:          -Wall -with-rtsopts=-T
   Main-Is:              Main.hs
   Other-Modules:        Application
                         Application.Types
