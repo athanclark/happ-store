@@ -1,6 +1,6 @@
 module Session exposing
   ( Model
-  , Msg (Login)
+  , Msg (Login, GET)
   , init
   , update
   , subscriptions
@@ -54,6 +54,7 @@ toSession s = Just
   , user  = ()
   }
 
+-- Works for any payload
 updateSession : Data.WithSession -> Session -> Session
 updateSession s s' =
   { s' | nonce = s.nonce
@@ -63,40 +64,51 @@ updateSession s s' =
 
 type alias EveryState =
   { lastResponse : Bool -- whether the response was good
-  , session      : Session
   }
 
-type alias Model =
+type alias Model a =
   { session    : Maybe Session
   , lastHash   : Maybe Data.Hashed
-  , nonceState : Nonce.Model Msg
-  , dataState  : Data.Model Msg
+  , nonceState : Nonce.Model (Result (Msg a) a)
+  , dataState  : Data.Model (Result (Msg a) a)
   , everyState : Every.Model EveryState
   }
 
-nextSessionTick : Maybe EveryState -> Time -> Time
-nextSessionTick me soFar =
+nextSessionTick : EveryState -> Time -> Time
+nextSessionTick e soFar =
   let standard = Time.second * 5
-  in case me of
-       Nothing -> standard
-       Just e ->
-         if e.lastResponse
-         then standard
-         else standard + (2 * soFar)
+  in if e.lastResponse
+  then standard
+  else Debug.log "waiting for" <| standard + (2 * soFar)
 
-type Msg
-  = Login User.Credentials
-  | NonceMsg (Nonce.Msg Msg)
-  | DataMsg  (Data.Msg Msg)
-  | EveryMsg (Every.Msg EveryState)
-  | LoginResponse Data.Hashed Data.WithSession
-  | PingSession (Maybe EveryState)
-  | PingSessionResponse Data.Hashed Data.WithSession
+type LoginError
+  = LoginMalicious
+  | LoginBadCredentials
+  | LoginTimeout
+  | LoginNetworkError
+
+type SessionError
+  = SessionMalicious
+  | SessionExpired
+  | SessionTimeout
+  | SessionNetworkError
+
+type Msg a
+  = Login User.Credentials (Maybe LoginError -> Cmd a)
+  | LoginResponse Data.Hashed (Maybe LoginError -> Cmd a)
+                              (Result LoginError Data.WithSession)
+  | GET String (Maybe JsonE.Value) (Result SessionError JsonD.Value -> Cmd a)
+  | GETResponse Data.Hashed (Result SessionError JsonD.Value -> Cmd a)
+                            (Result SessionError Data.WithSession)
+  | PingSession EveryState
+  | PingSessionResponse Data.Hashed (Result SessionError Data.WithSession)
   | UpdateSession Session
-  -- | GET String (Maybe JsonD.Value -> Cmd a)
+  | NonceMsg (Nonce.Msg (Result (Msg a) a))
+  | DataMsg  (Data.Msg (Result (Msg a) a))
+  | EveryMsg (Every.Msg EveryState)
   -- unpacks the `data` component
 
-init : (Model, Cmd Msg)
+init : (Model a, Cmd (Msg a))
 init =
   let (nonceModel, nonceEff) = Nonce.init
       (dataModel,  dataEff)  = Data.init
@@ -104,7 +116,7 @@ init =
         , lastHash   = Nothing
         , nonceState = nonceModel
         , dataState  = dataModel
-        , everyState = Every.init
+        , everyState = Every.init { lastResponse = True }
         }
       , Cmd.batch
           [ Cmd.map NonceMsg nonceEff
@@ -112,127 +124,188 @@ init =
           ]
       )
 
-update : Msg -> Model -> (Model, Cmd Msg)
-update action model =
+update : (SessionError -> Cmd a)
+      -> Msg a
+      -> Model a
+      -> (Model a, Cmd (Result (Msg a) a))
+update onPingFail action model =
   case action of
     NonceMsg a ->
       let (newNonce, eff) = Nonce.update a model.nonceState
       in  ( { model | nonceState = newNonce }
           , Cmd.map (\r -> case r of
-                             Err x -> NonceMsg x
-                             Ok  x -> x) eff
+                             Err x -> Err <| NonceMsg x
+                             Ok x  -> x) eff
           )
     DataMsg a ->
       let (newData, eff) = Data.update a model.dataState
       in  ( { model | dataState = newData }
           , Cmd.map (\r -> case r of
-                             Err x -> DataMsg x
-                             Ok  x -> x) eff
+                             Err x -> Err <| DataMsg x
+                             Ok x -> x) eff
           )
     EveryMsg a ->
       let (newEvery, eff) = Every.update
                               nextSessionTick
-                              (mkCmd << PingSession)
+                              (mkCmd << Err << PingSession)
                               a
                               model.everyState
       in  ( { model | everyState = newEvery }
           , Cmd.map (\r -> case r of
-                             Err a -> a
-                             Ok  x -> EveryMsg x) eff
+                             Err x -> x
+                             Ok x  -> Err <| EveryMsg x) eff
           )
-    Login cs ->
+    Login cs onLogin ->
       ( model
-      , mkCmd <| NonceMsg <| Nonce.NewNonce <| \n ->
+      , mkCmd <| Err <| NonceMsg <| Nonce.NewNonce <| \n ->
         let data = User.encodeCredentials cs
-        in  mkCmd <| DataMsg <| Data.MkWithSession n data Nothing <| \s ->
-            Task.perform
-              ( \_ -> EveryMsg <| Every.Start
-                        { resetSoFar = False
-                        , modifyData = Just <| Every.Update <| \me ->
-                            case me of -- exponential backoff
-                              Nothing -> Nothing
-                              Just e  -> Just { e | lastResponse = False }
-                        }
+        in  mkCmd <| Err <| DataMsg <| Data.MkWithSession n data Nothing <| \s ->
+            Cmd.map (Err << LoginResponse s.hash onLogin) <|
+              Task.perform
+                  (\e -> case e of
+                           Http.NetworkError ->
+                             Err LoginNetworkError
+                           Http.Timeout ->
+                             Err LoginTimeout
+                           Http.BadResponse c _ ->
+                             if c == 403 || c == 400
+                             then Err LoginMalicious
+                             else Err LoginBadCredentials
+                           Http.UnexpectedPayload _ ->
+                             Err LoginBadCredentials
+                  )
+                  Ok
+                  <| Http.post
+                        Data.decodeWithSession
+                        "/login"
+                        (Http.string <| JsonE.encode 0 <| Data.encodeWithSession s)
+      )
+    LoginResponse loginHash onLogin es ->
+      case es of
+        Err e -> (model, Cmd.map Ok <| onLogin <| Just e)
+        Ok s ->
+          case toSession s of
+            Nothing -> Debug.crash "fak" -- TODO: Session warning messages
+            Just s' ->
+              ( model
+              , mkCmd <| Err <| DataMsg <| Data.CkWithSession loginHash s <| \isLegit ->
+                  if isLegit
+                  then Cmd.batch
+                          [ mkCmd <| Err <| UpdateSession s'
+                          , mkCmd <| Err <| EveryMsg <| Every.Start
+                                  <| \_ -> { lastResponse = True
+                                           }
+                          , Cmd.map Ok <| onLogin Nothing
+                          ]
+                  else Cmd.map Ok <| onLogin <| Just LoginMalicious
               )
-              (LoginResponse s.hash)
+    PingSession e ->
+      ( model
+      , let data = JsonE.string "ping"
+        in  mkCmd <| Err <| DataMsg <| (Debug.log "pinging..." <| Data.MkWithSession
+                                  (case model.session of
+                                     Nothing -> Debug.crash "ping called without session!"
+                                     Just s  -> s.nonce)
+                                  data
+                                  (Maybe.map .hash model.session)) <| \s ->
+            Cmd.map (Err << PingSessionResponse s.hash) <| Task.perform
+              (\e -> case e of
+                       Http.NetworkError -> Err SessionNetworkError
+                       Http.Timeout -> Err SessionTimeout
+                       Http.BadResponse c _ ->
+                         if c == 403 || c == 400
+                         then Err SessionMalicious
+                         else if c == 404
+                         then Err SessionExpired
+                         else Err SessionNetworkError
+                       Http.UnexpectedPayload _ -> Err SessionNetworkError
+              )
+              Ok
               <| Http.post
                    Data.decodeWithSession
-                   "/login"
+                   "/session"
                    (Http.string <| JsonE.encode 0 <| Data.encodeWithSession s)
       )
-    LoginResponse loginHash s ->
-      case toSession s of
-        Nothing -> Debug.crash "fak" -- TODO: Session warning messages
-        Just s' ->
-          ( model
-          , mkCmd <| DataMsg <| Data.CkWithSession loginHash s <| \isLegit ->
-              if isLegit
-              then Cmd.batch
-                     [ mkCmd <| UpdateSession s'
-                     , mkCmd <| EveryMsg <| Every.Start
-                                  { resetSoFar = True
-                                  , modifyData = Just <| Every.Assign
-                                                   { lastResponse = True
-                                                   , session      = s'
-                                                   }
+    PingSessionResponse lastHash es ->
+      case es of
+        Err e -> (model, Cmd.map Ok <| onPingFail e)
+        Ok s ->
+          case model.session of
+            Just s' -> -- TODO: Session warning messages
+              ( model
+              , mkCmd <| Err <| DataMsg <| Data.CkWithSession lastHash s <| \isLegit ->
+                if isLegit
+                then let newSession = updateSession s s'
+                in Cmd.batch
+                    [ mkCmd <| Err <| UpdateSession newSession
+                    , mkCmd <| Err <| EveryMsg <| Every.Adjust
+                                  { reset = True -- was sucessful
+                                  , modify = \_ -> { lastResponse = True
+                                                  }
                                   }
-                     ]
-              else Debug.log "bad login response" Cmd.none
-          )
-    PingSession me ->
-      case me of
-        Nothing ->
-          ( model
-          , mkCmd <| EveryMsg Every.Stop
-          )
-        Just e -> Debug.log "pinging..."
-          ( model
-          , let data = JsonE.string "ping"
-            in  mkCmd <| DataMsg <| Data.MkWithSession
-                                      e.session.nonce
-                                      data
-                                      (Just e.session.hash) <| \s ->
-                Task.perform
-                  ( \_ -> EveryMsg <| Every.Start
-                            { resetSoFar = False
-                            , modifyData = Just <| Every.Update <| \me ->
-                                case me of -- exponential backoff
-                                  Nothing -> Nothing
-                                  Just e  -> Just { e | lastResponse = False }
-                            }
-                  )
-                  (PingSessionResponse s.hash)
-                  <| Http.post
-                       Data.decodeWithSession
-                       "/session"
-                       (Http.string <| JsonE.encode 0 <| Data.encodeWithSession s)
-          )
-    PingSessionResponse lastHash s ->
-      case model.session of
-        Nothing -> Debug.crash "no session after ping"
-        Just s' -> -- TODO: Session warning messages
-          ( model
-          , mkCmd <| DataMsg <| Data.CkWithSession lastHash s <| \isLegit ->
-            if isLegit
-            then let newSession = updateSession s s'
-            in Cmd.batch
-                 [ mkCmd <| UpdateSession newSession
-                 , mkCmd <| EveryMsg <| Every.Start
-                              { resetSoFar = True
-                              , modifyData = Just <| Every.Assign
-                                               { lastResponse = True
-                                               , session = newSession
-                                               }
-                              }
-                 ]
-            else Debug.log "bad session hash" Cmd.none
-          )
+                    ]
+                else Cmd.map Ok <| onPingFail <| SessionMalicious
+              )
+            Nothing ->
+              ( model -- fail silently; already logged out
+              , Cmd.none
+              )
     UpdateSession s ->
       ( { model | session = Just s }
       , Cmd.none
       )
+    GET location data handler ->
+      ( model
+      , case model.session of
+          Nothing -> Debug.crash "no session" -- TODO: Use Http.Get
+          Just s' ->
+            mkCmd <| Err <| DataMsg <| (Debug.log "pinging..." <| Data.MkWithSession
+                              s'.nonce
+                              (Maybe.withDefault (JsonE.list []) data)
+                              (Maybe.map .hash model.session)) <| \s ->
+            Cmd.map (Err << GETResponse s'.hash handler) <| Task.perform
+              (\e -> case e of
+                       Http.NetworkError -> Err SessionNetworkError
+                       Http.Timeout -> Err SessionTimeout
+                       Http.BadResponse c _ ->
+                         if c == 403 || c == 400
+                         then Err SessionMalicious
+                         else if c == 404
+                         then Err SessionExpired
+                         else Err SessionNetworkError
+                       Http.UnexpectedPayload _ -> Err SessionNetworkError
+              )
+              Ok
+              <| Http.post
+                    Data.decodeWithSession
+                    location
+                    (Http.string <| JsonE.encode 0 <| Data.encodeWithSession s)
+      )
+    GETResponse lastHash handler es ->
+      case es of
+        Err e -> (model, Cmd.map Ok <| handler <| Err e)
+        Ok s ->
+          ( model
+          , case model.session of
+            Nothing -> Debug.crash "no session" -- TODO: Fixme
+            Just s' ->
+              mkCmd <| Err <| DataMsg <| Data.CkWithSession lastHash s <| \isLegit ->
+                let newSession = updateSession s s'
+                in if isLegit
+                then Cmd.batch
+                        [ mkCmd <| Err <| UpdateSession newSession
+                        , mkCmd <| Err <| EveryMsg <| Every.Adjust
+                                    { reset = True -- was sucessful
+                                    , modify = \_ -> { lastResponse = True
+                                                    }
+                                    }
+                        , Cmd.map Ok <| handler <| Ok s.data
+                        ]
+                else Cmd.map Ok <| handler <| Err SessionMalicious
+          )
 
-subscriptions : Sub Msg
+
+subscriptions : Sub (Msg a)
 subscriptions =
   Sub.batch
     [ Sub.map NonceMsg Nonce.subscriptions
@@ -240,10 +313,10 @@ subscriptions =
     ]
 
 
-viewMenuItem : Model -> Html Msg
+viewMenuItem : Model a -> Html (Msg a)
 viewMenuItem model =
   a [ class "item"
-    , onClick <| Login <| User.Plain { username = "", password = "" }
+    , onClick <| Login (User.Plain { username = "", password = "" }) (\_ -> Cmd.none)
     ]
     [ case model.session of
         Nothing -> text "login"

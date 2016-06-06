@@ -42,7 +42,7 @@ type alias Model =
   , height          : Int
   , sidebarDuration : Duration.Model Msg
   , dimmer          : Float
-  , session         : Session.Model
+  , session         : Session.Model Msg
   }
 
 type Msg
@@ -52,7 +52,7 @@ type Msg
   | ChangeScreenSize Window.Size
   | DurationMsg (Duration.Msg Msg)
   | ChangeDimmer Float
-  | SessionMsg Session.Msg
+  | SessionMsg (Session.Msg Msg)
 
 
 -- type alias Flags =
@@ -89,9 +89,11 @@ update action model =
           , Cmd.map NavMsg eff
           )
     SessionMsg a ->
-      let (newSession, eff) = Session.update a model.session
+      let (newSession, eff) = Session.update (\_ -> Cmd.none) a model.session
       in  ( { model | session = newSession }
-          , Cmd.map SessionMsg eff
+          , Cmd.map (\r -> case r of
+                             Err x -> SessionMsg x
+                             Ok x  -> x) eff
           )
     DurationMsg a ->
       let timeLength = 500 * millisecond
