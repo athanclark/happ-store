@@ -43,6 +43,7 @@ update action model =
       , Cmd.none
       )
 
+-- menu items for top fixed bar
 view : Model -> List (Html Msg)
 view model =
     [ a [ class "item header"
@@ -53,6 +54,7 @@ view model =
     ]
 
 
+-- sidebar
 viewMobile : Model -> Html Msg
 viewMobile model =
   div [ class <| "ui left vertical menu inverted sidebar"

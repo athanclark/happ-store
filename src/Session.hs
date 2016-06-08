@@ -26,8 +26,7 @@ import qualified Data.ByteString.UTF8   as BSU8
 import Data.ByteArray (convert)
 import Data.UUID.V4 as UUID
 import Data.UUID as UUID
-
-import Debug.Trace
+import Data.Time (getCurrentTime)
 
 
 data SessionRequest a = SessionRequest
@@ -71,22 +70,23 @@ withSession s f = do
   storedHash <- liftIO $ do
     mh <- atomically $ TM.lookup (sessionNonce s) sessionCache
     case mh of
-      Nothing -> throwM NonexistentNonce
+      Nothing -> throwM . NonexistentNonce $ sessionNonce s
       Just h  -> pure h
-  let data'  = BSL.toStrict . A.encode $ sessionData s
+  let data'  = BSL.toStrict    . A.encode      $ sessionData s
       nonce' = BSU8.fromString . UUID.toString $ sessionNonce s
       expectedHash :: Digest SHA512
       expectedHash = hash $ nonce' <> data' <> BS64.encode storedHash
-  if convert expectedHash /= sessionHash s
-  then throwM InvalidSessionHash
-  else do
-    b <- f $ sessionData s
-    newNonce <- liftIO UUID.nextRandom
-    let b' = BSL.toStrict $ A.encode b
-        newNonce' = BSU8.fromString $ UUID.toString newNonce
-        newHash :: Digest SHA512
-        newHash = hash $ newNonce' <> b' <> BS64.encode (convert expectedHash)
-    liftIO $ do
-      atomically $ TM.delete (sessionNonce s) sessionCache
-      TM.insert newNonce (convert newHash) sessionCache
-    pure $ SessionRequest newNonce b (convert newHash)
+  when (convert expectedHash /= sessionHash s) $ throwM InvalidSessionHash
+  b <- f $ sessionData s
+  newNonce <- liftIO UUID.nextRandom
+  let b' = BSL.toStrict $ A.encode b
+      newNonce' = BSU8.fromString $ UUID.toString newNonce
+      newHash :: Digest SHA512
+      newHash = hash $ newNonce' <> b' <> BS64.encode (convert expectedHash)
+  liftIO $ do
+    now <- getCurrentTime
+    putStrLn $ "Changing nonce: " ++ show (sessionNonce s) ++ " to " ++ show newNonce
+    atomically $ do
+      TM.delete (sessionNonce s) sessionCache
+      TM.insertWithTime now newNonce (convert newHash) sessionCache
+  pure $ SessionRequest newNonce b (convert newHash)

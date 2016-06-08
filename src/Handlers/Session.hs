@@ -3,7 +3,9 @@
   , FlexibleContexts
   #-}
 
-module Handlers.Session where
+module Handlers.Session
+  ( sessionHandle
+  ) where
 
 import Handlers.Chunks
 import Handlers.App
@@ -11,7 +13,10 @@ import Handlers.App
 import Session
 
 import Imports
+import Data.Monoid
+import Network.HTTP.Types
 import qualified Data.Text as T
+import qualified Data.Text.Lazy as LT
 import Data.Aeson as A hiding (json)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Catch
@@ -36,4 +41,17 @@ sessionHandle app req respond =
           l' <- withSession l $ \_ ->
                   pure ("pong" :: T.Text)
           json l'
-  in  handle app req respond
+  in  (handle `catchMiddlewareT` errorCatcher) app req respond
+
+
+errorCatcher :: MonadApp m
+             => SessionException -> MiddlewareT m
+errorCatcher e app req respond =
+  case e of
+    InvalidSessionHash ->
+      respond $ textOnly "Invalid Session Hash!" status403 []
+    BadSessionFormat ->
+      respond $ textOnly "Malformed Data" status400 []
+    NonexistentNonce n -> do
+      liftIO . putStrLn $ "Nonce not found: " ++ show n
+      respond $ textOnly ("Nonce not found: " <> LT.pack (show n)) status404 []

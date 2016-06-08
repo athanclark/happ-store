@@ -21,6 +21,7 @@
   "dependencies": {
     "semantic-ui": "*",
     "jquery": "*",
-    "jsSHA": "~2.1.0"
+    "jsSHA": "~2.1.0",
+    "js-nacl": "~0.6.0"
   }
 }

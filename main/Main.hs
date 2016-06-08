@@ -200,10 +200,10 @@ entry p m env = do
           secondDiff = 1
       TM.filterFromNow (60 * secondDiff) sessionCache
       threadDelay (5 * secondPico)
-  run p (server' defApp)
+  runEnv p $ server' defApp
   where
     server'  = gzip def
-             . logStdoutDev
+           --  . logStdoutDev
              . runMiddlewareT runAppT' server
     server   = securityLayer
              . staticLayer

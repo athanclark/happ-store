@@ -48,7 +48,6 @@ Library
                       , ixset
                       , lucid
                       , markup >= 3.1.0
-                      , memcached
                       , memory
                       , mmorph
                       , monad-control
@@ -59,11 +58,12 @@ Library
                       , regex-compat
                       , resourcet
                       , safecopy
+                      , saltine
                       , stm
                       , text
                       , transformers
                       , time
-                      , timemap
+                      , timemap >= 0.0.3
                       , unordered-containers >= 0.2
                       , urlpath >= 5.0.0.1
                       , uuid
@@ -116,7 +116,6 @@ Executable happ-store
                       , ixset
                       , lucid
                       , markup
-                      , memcached
                       , memory
                       , mmorph
                       , monad-control

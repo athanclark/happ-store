@@ -37,6 +37,7 @@ runAppTemplateT = runAbsoluteUrlT
 type MonadApp m =
   ( MonadIO m
   , MonadThrow m
+  , MonadCatch m
   , MonadLogger m
   , MonadReader Env m
   , MonadUrl Abs File m
@@ -131,7 +132,7 @@ appendActiveWhen _ _ c = c
 data SessionException
   = InvalidSessionHash
   | BadSessionFormat
-  | NonexistentNonce
+  | NonexistentNonce UUID
   deriving (Generic, Show)
 
 instance Exception SessionException

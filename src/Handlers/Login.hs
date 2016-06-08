@@ -3,7 +3,10 @@
   , FlexibleContexts
   #-}
 
-module Handlers.Login where
+module Handlers.Login
+  ( loginHandle
+  , loginFacebookHandle
+  ) where
 
 import Session
 
@@ -90,11 +93,17 @@ loginHandle app req respond =
                   Nothing -> throwM BadLoginFormat
                   Just x  -> pure x
           l' <- checkLoginRequest l
-          liftIO $ do
-            putStrLn $ "Login Request:\n" ++ show l
-            putStrLn $ "Login Response:\n" ++ show l'
           json l'
-  in  handle app req respond
+  in  (handle `catchMiddlewareT` errorCatcher) app req respond
+
+errorCatcher :: MonadApp m
+             => LoginException -> MiddlewareT m
+errorCatcher e app req respond =
+  case e of
+    InvalidLoginHash ->
+      respond $ textOnly "Invalid Login Hash!" status403 []
+    BadLoginFormat ->
+      respond $ textOnly "Malformed Data" status400 []
 
 loginFacebookHandle :: MonadApp m
                     => MiddlewareT m

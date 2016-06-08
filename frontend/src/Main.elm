@@ -249,6 +249,7 @@ view model =
                           ]
                      else []
             ]
+        -- modals
         ]
 
 subscriptions : Model -> Sub Msg

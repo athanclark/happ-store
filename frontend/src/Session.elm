@@ -95,11 +95,14 @@ type SessionError
 
 type Msg a
   = Login User.Credentials (Maybe LoginError -> Cmd a)
+  | Logout
   | LoginResponse Data.Hashed (Maybe LoginError -> Cmd a)
                               (Result LoginError Data.WithSession)
   | GET String (Maybe JsonE.Value) (Result SessionError JsonD.Value -> Cmd a)
   | GETResponse Data.Hashed (Result SessionError JsonD.Value -> Cmd a)
                             (Result SessionError Data.WithSession)
+  | GETUnauthResponse (Result SessionError JsonD.Value -> Cmd a)
+                      (Result SessionError JsonD.Value)
   | PingSession EveryState
   | PingSessionResponse Data.Hashed (Result SessionError Data.WithSession)
   | UpdateSession Session
@@ -185,7 +188,7 @@ update onPingFail action model =
         Err e -> (model, Cmd.map Ok <| onLogin <| Just e)
         Ok s ->
           case toSession s of
-            Nothing -> Debug.crash "fak" -- TODO: Session warning messages
+            Nothing -> (model, Cmd.map Ok <| onLogin <| Just LoginBadCredentials)
             Just s' ->
               ( model
               , mkCmd <| Err <| DataMsg <| Data.CkWithSession loginHash s <| \isLegit ->
@@ -199,6 +202,10 @@ update onPingFail action model =
                           ]
                   else Cmd.map Ok <| onLogin <| Just LoginMalicious
               )
+    Logout ->
+      ( { model | session = Nothing }
+      , mkCmd <| Err <| EveryMsg Every.Stop
+      )
     PingSession e ->
       ( model
       , let data = JsonE.string "ping"
@@ -256,30 +263,36 @@ update onPingFail action model =
       )
     GET location data handler ->
       ( model
-      , case model.session of
-          Nothing -> Debug.crash "no session" -- TODO: Use Http.Get
-          Just s' ->
-            mkCmd <| Err <| DataMsg <| (Debug.log "pinging..." <| Data.MkWithSession
-                              s'.nonce
-                              (Maybe.withDefault (JsonE.list []) data)
-                              (Maybe.map .hash model.session)) <| \s ->
-            Cmd.map (Err << GETResponse s'.hash handler) <| Task.perform
-              (\e -> case e of
-                       Http.NetworkError -> Err SessionNetworkError
-                       Http.Timeout -> Err SessionTimeout
-                       Http.BadResponse c _ ->
-                         if c == 403 || c == 400
-                         then Err SessionMalicious
-                         else if c == 404
-                         then Err SessionExpired
-                         else Err SessionNetworkError
-                       Http.UnexpectedPayload _ -> Err SessionNetworkError
-              )
-              Ok
-              <| Http.post
-                    Data.decodeWithSession
-                    location
-                    (Http.string <| JsonE.encode 0 <| Data.encodeWithSession s)
+      , let handleError e = case e of
+                              Http.NetworkError -> Err SessionNetworkError
+                              Http.Timeout -> Err SessionTimeout
+                              Http.BadResponse c _ ->
+                                if c == 403 || c == 400
+                                then Err SessionMalicious
+                                else if c == 404
+                                then Err SessionExpired
+                                else Err SessionNetworkError
+                              Http.UnexpectedPayload _ -> Err SessionNetworkError
+        in case model.session of
+             Nothing ->
+               Cmd.map (Err << GETUnauthResponse handler) <| Task.perform
+                 handleError
+                 Ok
+                 <| Http.get
+                      JsonD.value
+                      location
+             Just s' ->
+               mkCmd <| Err <| DataMsg <| (Debug.log "pinging..." <| Data.MkWithSession
+                                 s'.nonce
+                                 (Maybe.withDefault (JsonE.list []) data)
+                                 (Maybe.map .hash model.session)) <| \s ->
+               Cmd.map (Err << GETResponse s'.hash handler) <| Task.perform
+                 handleError
+                 Ok
+                 <| Http.post
+                       Data.decodeWithSession
+                       location
+                       (Http.string <| JsonE.encode 0 <| Data.encodeWithSession s)
       )
     GETResponse lastHash handler es ->
       case es of
@@ -303,6 +316,10 @@ update onPingFail action model =
                         ]
                 else Cmd.map Ok <| handler <| Err SessionMalicious
           )
+    GETUnauthResponse handler es ->
+      ( model
+      , Cmd.map Ok <| handler es
+      )
 
 
 subscriptions : Sub (Msg a)
@@ -313,12 +330,16 @@ subscriptions =
     ]
 
 
+-- login button
 viewMenuItem : Model a -> Html (Msg a)
 viewMenuItem model =
   a [ class "item"
-    , onClick <| Login (User.Plain { username = "", password = "" }) (\_ -> Cmd.none)
-    ]
-    [ case model.session of
-        Nothing -> text "login"
-        Just u  -> text "sup dawg!"
-    ]
+    , onClick <| case model.session of
+                   Nothing -> Login (User.Plain { username = "", password = "" }) (\_ -> Cmd.none)
+                   Just _ -> Logout
+    ] <|
+    case model.session of
+      Nothing -> [ i [class "icon sign in"] []
+                 , text "Login"
+                 ]
+      Just u  -> [text "sup dawg!"]
