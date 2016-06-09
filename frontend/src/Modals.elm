@@ -5,8 +5,24 @@ import Html            exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events     exposing (..)
 
-import Dict exposing (Dict)
+import Array exposing (Array)
 
+type alias Fifo a = List a
+
+pushFifo : a -> Fifo a -> Fifo a
+pushFifo x = Array.toList << Array.push x << Array.fromList
+
+peekFifo : Fifo a -> Maybe (a, Fifo a)
+peekFifo xs =
+  case xs of
+    []       -> Nothing
+    x :: xs' -> Just (x, xs')
+
+type ModalType 
+
+type ModalBuilder = ModalBuilder
+  { 
+  }
 
 
 type alias Model =

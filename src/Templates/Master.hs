@@ -75,6 +75,8 @@ masterPage =
              deploy JavaScript Remote semantic
              jssha <- lift (toLocation JsSHACdn)
              deploy JavaScript Remote jssha
+             jsNaCl <- lift (toLocation JsNaCLCdn)
+             deploy JavaScript Remote jsNaCl
 
       else hoist (`runAbsoluteUrlT` hostname) $ do
              jQuery <- lift (toLocation JQuery)
@@ -83,6 +85,8 @@ masterPage =
              deploy JavaScript Remote semantic
              jssha <- lift (toLocation JsSHA)
              deploy JavaScript Remote jssha
+             jsNaCl <- lift (toLocation JsNaCL)
+             deploy JavaScript Remote jsNaCl
 
     elmScripts :: MonadApp m => HtmlT m ()
     elmScripts = do

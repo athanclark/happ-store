@@ -81,7 +81,8 @@ Executable happ-store
                       , main
   GHC-Options:          -Wall -with-rtsopts=-T
   Main-Is:              Main.hs
-  Other-Modules:        Application
+  Other-Modules:        Main.Options
+                        Application
                         Application.Types
                         Pages.Home
                         Pages.NotFound
@@ -127,6 +128,7 @@ Executable happ-store
                       , regex-compat
                       , resourcet
                       , safecopy
+                      , saltine
                       , stm
                       , text
                       , transformers

@@ -19,6 +19,8 @@ import Control.Monad.Logger
 import Control.Monad.Trans.Control
 import Control.Monad.Reader
 import Control.Monad.Catch
+import Crypto.Saltine.Core.Box as NaCL
+
 import GHC.Generics
 import Data.Typeable
 
@@ -57,17 +59,20 @@ data Env = Env
   , envStatic     :: FilePath
   , envProduction :: Bool
   , envSession    :: SessionCache
+  , envPublicKey  :: PublicKey
+  , envSecretKey  :: SecretKey
   }
 
 instance Show Env where
-  show (Env a c s p _) =
+  show (Env a c s p _ _ _) =
     "Env {envAuthority = " ++ show a ++ ", envCwd = "
                            ++ show c ++ ", envStatic = "
                            ++ show s ++ ", envProduction = "
-                           ++ show p ++ ", envSession = <session>}"
+                           ++ show p
+    ++ ", envSession = <session>}, envPublicKey = <#>, envSecretKey = <#>"
 
 instance Eq Env where
-  (Env a1 c1 s1 p1 _) == (Env a2 c2 s2 p2 _) =
+  (Env a1 c1 s1 p1 _ _ _) == (Env a2 c2 s2 p2 _ _ _) =
     a1 == a2 && c1 == c2 && s1 == s2 && p1 == p2
 
 -- | Data type representing top navigation bar
@@ -92,8 +97,10 @@ data AppResources
   | SemanticJsCdn
   | SemanticCss
   | SemanticCssCdn
-  | JsSHACdn
   | JsSHA
+  | JsSHACdn
+  | JsNaCL
+  | JsNaCLCdn
   | LessStyles
   | AppFrontend
   deriving (Show, Eq)
@@ -107,6 +114,8 @@ instance ToPath AppResources Abs File where
   toPath SemanticCssCdn   = parseAbsFile "/ajax/libs/semantic-ui/2.1.8/semantic"
   toPath JsSHACdn         = parseAbsFile "/ajax/libs/jsSHA/2.1.0/sha"
   toPath JsSHA            = parseAbsFile "/vendor/jsSHA/src/sha"
+  toPath JsNaCL           = parseAbsFile "/vendor/js-nacl/lib/nacl_factory"
+  toPath JsNaCLCdn        = parseAbsFile "/ajax/libs/js-nacl/1.2.0/nacl_factory"
   toPath LessStyles       = parseAbsFile "/style"
   toPath AppFrontend      = parseAbsFile "/Main"
 
@@ -119,6 +128,8 @@ instance ToLocation AppResources Abs File where
   toLocation SemanticCssCdn   = (addFileExt "min.css" . fromPath) <$> toPath SemanticCssCdn
   toLocation JsSHACdn         = (addFileExt "js"      . fromPath) <$> toPath JsSHACdn
   toLocation JsSHA            = (addFileExt "js"      . fromPath) <$> toPath JsSHA
+  toLocation JsNaCL           = (addFileExt "js"      . fromPath) <$> toPath JsNaCL
+  toLocation JsNaCLCdn        = (addFileExt "min.js"  . fromPath) <$> toPath JsNaCLCdn
   toLocation LessStyles       = (addFileExt "css"     . fromPath) <$> toPath LessStyles
   toLocation AppFrontend      = (addFileExt "min.js"  . fromPath) <$> toPath AppFrontend
 
