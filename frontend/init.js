@@ -31,6 +31,22 @@ nacl_factory.instantiate(function(nacl) {
     var app = Elm.Main.fullscreen(
     );
 
+    app.ports.makeSignature.subscribe(function(xs) {
+        var ys = sign(xs.toSign);
+        app.ports.madeSignature.send({
+            "threadId"  : xs.threadId,
+            "publicKey" : ys.publicKey,
+            "signature" : ys.signature
+        });
+    });
+
+    app.ports.openSignature.subscribe(function(xs) {
+        app.ports.openedSignature.send({
+            "threadId" : xs.threadId,
+            "verified" : verify(xs.toVerify)
+        });
+    })
+
     // sha256
     app.ports.makeSHASession.subscribe(function(xs) {
         var shaObj = new jsSHA("SHA-512", "TEXT");
@@ -39,14 +55,6 @@ nacl_factory.instantiate(function(nacl) {
         app.ports.madeSHASession.send({
             threadId : xs.threadId,
             output   : hash
-        });
-    });
-
-    app.ports.askInitNonce.subscribe(function(threadId) {
-        app.ports.getInitNonce.send({
-            seed1    : Math.floor(Math.random() * 0xFFFFFFFF),
-            seed2    : Math.floor(Math.random() * 0xFFFFFFFF),
-            threadId : threadId
         });
     });
 });

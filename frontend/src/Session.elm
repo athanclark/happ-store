@@ -7,7 +7,6 @@ module Session exposing
   , viewMenuItem
   )
 
-import Session.Nonce as Nonce
 import Session.Data  as Data
 import User
 
@@ -19,47 +18,34 @@ import Every
 import Http
 import Json.Decode as JsonD exposing (Decoder, (:=))
 import Json.Encode as JsonE
-import Uuid
-import Task
+import Task exposing (Task)
 import Task.Extra as Task
 import Time exposing (Time)
 import Cmd.Extra exposing (mkCmd)
 
 
+
+signedPost : String -> Data.SignedRequest -> Task Http.Error Data.SignedResponse
+signedPost url signedReq =
+  Http.post
+    Data.signedResponseDecoder
+    url
+    <| Http.string <| JsonE.encode 0
+                   <| Data.encodeSignedRequest signedReq
+
+
 type alias Session =
   { user  : ()
-  , nonce : Nonce.Nonce
-  , hash  : String
   }
 
-loginDecoder : Decoder Session
-loginDecoder =
-  Data.decodeWithSession `JsonD.andThen` \ws ->
-    JsonD.succeed { user = ()
-                  , nonce = ws.nonce
-                  , hash  = ws.hash
-                  }
 
-fromSession : Session -> Data.WithSession
-fromSession s =
-  { nonce = s.nonce
-  , hash  = s.hash
-  , data  = JsonE.string "login success!"
-  }
-
-toSession : Data.WithSession -> Maybe Session
-toSession s = Just
-  { nonce = s.nonce
-  , hash  = s.hash
-  , user  = ()
-  }
-
--- Works for any payload
-updateSession : Data.WithSession -> Session -> Session
-updateSession s s' =
-  { s' | nonce = s.nonce
-       , hash  = s.hash
-  }
+makeSession : Maybe String -> Maybe Session
+makeSession ms =
+  case ms of
+    Nothing -> Nothing
+    Just s  -> if s == "login success!"
+               then Just { user = () }
+               else Nothing
 
 
 type alias EveryState =
@@ -68,8 +54,6 @@ type alias EveryState =
 
 type alias Model a =
   { session    : Maybe Session
-  , lastHash   : Maybe Data.Hashed
-  , nonceState : Nonce.Model (Result (Msg a) a)
   , dataState  : Data.Model (Result (Msg a) a)
   , everyState : Every.Model EveryState
   }
@@ -96,35 +80,28 @@ type SessionError
 type Msg a
   = Login User.Credentials (Maybe LoginError -> Cmd a)
   | Logout
-  | LoginResponse Data.Hashed (Maybe LoginError -> Cmd a)
-                              (Result LoginError Data.WithSession)
+  | LoginResponse (Maybe LoginError -> Cmd a)
+                  (Result LoginError Data.SignedResponse)
   | GET String (Maybe JsonE.Value) (Result SessionError JsonD.Value -> Cmd a)
-  | GETResponse Data.Hashed (Result SessionError JsonD.Value -> Cmd a)
-                            (Result SessionError Data.WithSession)
+  | GETResponse (Result SessionError JsonD.Value -> Cmd a)
+                (Result SessionError Data.SignedResponse)
   | GETUnauthResponse (Result SessionError JsonD.Value -> Cmd a)
                       (Result SessionError JsonD.Value)
   | PingSession EveryState
-  | PingSessionResponse Data.Hashed (Result SessionError Data.WithSession)
+  | PingSessionResponse (Result SessionError Data.SignedResponse)
   | UpdateSession Session
-  | NonceMsg (Nonce.Msg (Result (Msg a) a))
   | DataMsg  (Data.Msg (Result (Msg a) a))
   | EveryMsg (Every.Msg EveryState)
   -- unpacks the `data` component
 
 init : (Model a, Cmd (Msg a))
 init =
-  let (nonceModel, nonceEff) = Nonce.init
-      (dataModel,  dataEff)  = Data.init
+  let (dataModel,  dataEff)  = Data.init
   in  ( { session    = Nothing
-        , lastHash   = Nothing
-        , nonceState = nonceModel
         , dataState  = dataModel
         , everyState = Every.init { lastResponse = True }
         }
-      , Cmd.batch
-          [ Cmd.map NonceMsg nonceEff
-          , Cmd.map DataMsg dataEff
-          ]
+      , Cmd.map DataMsg dataEff
       )
 
 update : (SessionError -> Cmd a)
@@ -133,19 +110,12 @@ update : (SessionError -> Cmd a)
       -> (Model a, Cmd (Result (Msg a) a))
 update onPingFail action model =
   case action of
-    NonceMsg a ->
-      let (newNonce, eff) = Nonce.update a model.nonceState
-      in  ( { model | nonceState = newNonce }
-          , Cmd.map (\r -> case r of
-                             Err x -> Err <| NonceMsg x
-                             Ok x  -> x) eff
-          )
     DataMsg a ->
       let (newData, eff) = Data.update a model.dataState
       in  ( { model | dataState = newData }
           , Cmd.map (\r -> case r of
                              Err x -> Err <| DataMsg x
-                             Ok x -> x) eff
+                             Ok x  -> x) eff
           )
     EveryMsg a ->
       let (newEvery, eff) = Every.update
@@ -160,10 +130,9 @@ update onPingFail action model =
           )
     Login cs onLogin ->
       ( model
-      , mkCmd <| Err <| NonceMsg <| Nonce.NewNonce <| \n ->
-        let data = User.encodeCredentials cs
-        in  mkCmd <| Err <| DataMsg <| Data.MkWithSession n data Nothing <| \s ->
-            Cmd.map (Err << LoginResponse s.hash onLogin) <|
+      , let message = JsonE.encode 0 <| User.encodeCredentials cs
+        in  mkCmd <| Err <| DataMsg <| Data.Sign message <| \signedReq ->
+            Cmd.map (Err << LoginResponse onLogin) <|
               Task.perform
                   (\e -> case e of
                            Http.NetworkError ->
@@ -178,44 +147,34 @@ update onPingFail action model =
                              Err LoginBadCredentials
                   )
                   Ok
-                  <| Http.post
-                        Data.decodeWithSession
-                        "/login"
-                        (Http.string <| JsonE.encode 0 <| Data.encodeWithSession s)
+                  <| signedPost "/login" signedReq
       )
-    LoginResponse loginHash onLogin es ->
-      case es of
+    LoginResponse onLogin eResponse ->
+      case eResponse of
         Err e -> (model, Cmd.map Ok <| onLogin <| Just e)
-        Ok s ->
-          case toSession s of
-            Nothing -> (model, Cmd.map Ok <| onLogin <| Just LoginBadCredentials)
-            Just s' ->
-              ( model
-              , mkCmd <| Err <| DataMsg <| Data.CkWithSession loginHash s <| \isLegit ->
-                  if isLegit
-                  then Cmd.batch
-                          [ mkCmd <| Err <| UpdateSession s'
-                          , mkCmd <| Err <| EveryMsg <| Every.Start
-                                  <| \_ -> { lastResponse = True
-                                           }
-                          , Cmd.map Ok <| onLogin Nothing
-                          ]
-                  else Cmd.map Ok <| onLogin <| Just LoginMalicious
-              )
+        Ok signedResp ->
+          ( model
+          , mkCmd <| Err <| DataMsg <| Data.Open signedResp <| \mResponse ->
+              case makeSession mResponse of
+                Nothing -> Cmd.map Ok <| onLogin <| Just LoginMalicious
+                Just session ->
+                  Cmd.batch
+                    [ mkCmd <| Err <| UpdateSession session
+                    , mkCmd <| Err <| EveryMsg <| Every.Start
+                            <| \_ -> { lastResponse = True
+                                     }
+                    , Cmd.map Ok <| onLogin Nothing
+                    ]
+          )
     Logout ->
       ( { model | session = Nothing }
       , mkCmd <| Err <| EveryMsg Every.Stop
       )
     PingSession e ->
       ( model
-      , let data = JsonE.string "ping"
-        in  mkCmd <| Err <| DataMsg <| (Debug.log "pinging..." <| Data.MkWithSession
-                                  (case model.session of
-                                     Nothing -> Debug.crash "ping called without session!"
-                                     Just s  -> s.nonce)
-                                  data
-                                  (Maybe.map .hash model.session)) <| \s ->
-            Cmd.map (Err << PingSessionResponse s.hash) <| Task.perform
+      , let message = Debug.log "pinging..." <| "ping"
+        in  mkCmd <| Err <| DataMsg <| Data.Sign message <| \signedReq ->
+            Cmd.map (Err << PingSessionResponse) <| Task.perform
               (\e -> case e of
                        Http.NetworkError -> Err SessionNetworkError
                        Http.Timeout -> Err SessionTimeout
@@ -228,39 +187,31 @@ update onPingFail action model =
                        Http.UnexpectedPayload _ -> Err SessionNetworkError
               )
               Ok
-              <| Http.post
-                   Data.decodeWithSession
-                   "/session"
-                   (Http.string <| JsonE.encode 0 <| Data.encodeWithSession s)
+              <| signedPost "/session" signedReq
       )
-    PingSessionResponse lastHash es ->
-      case es of
+    PingSessionResponse eResponse ->
+      case eResponse of
         Err e -> (model, Cmd.map Ok <| onPingFail e)
-        Ok s ->
+        Ok signedResp ->
           case model.session of
             Just s' -> -- TODO: Session warning messages
               ( model
-              , mkCmd <| Err <| DataMsg <| Data.CkWithSession lastHash s <| \isLegit ->
-                if isLegit
-                then let newSession = updateSession s s'
-                in Cmd.batch
-                    [ mkCmd <| Err <| UpdateSession newSession
-                    , mkCmd <| Err <| EveryMsg <| Every.Adjust
-                                  { reset = True -- was sucessful
-                                  , modify = \_ -> { lastResponse = True
-                                                  }
-                                  }
-                    ]
-                else Cmd.map Ok <| onPingFail <| SessionMalicious
+              , mkCmd <| Err <| DataMsg <| Data.Open signedResp <| \mResponse ->
+                case mResponse of
+                  Nothing -> Cmd.map Ok <| onPingFail <| SessionMalicious
+                  Just response ->
+                    if response /= "pong"
+                    then Cmd.map Ok <| onPingFail <| SessionMalicious
+                    else mkCmd <| Err <| EveryMsg <| Every.Adjust
+                           { reset = True -- was sucessful
+                           , modify = \_ -> { lastResponse = True
+                                            }
+                           }
               )
             Nothing ->
               ( model -- fail silently; already logged out
               , Cmd.none
               )
-    UpdateSession s ->
-      ( { model | session = Just s }
-      , Cmd.none
-      )
     GET location data handler ->
       ( model
       , let handleError e = case e of
@@ -282,52 +233,48 @@ update onPingFail action model =
                       JsonD.value
                       location
              Just s' ->
-               mkCmd <| Err <| DataMsg <| (Debug.log "pinging..." <| Data.MkWithSession
-                                 s'.nonce
-                                 (Maybe.withDefault (JsonE.list []) data)
-                                 (Maybe.map .hash model.session)) <| \s ->
-               Cmd.map (Err << GETResponse s'.hash handler) <| Task.perform
+               mkCmd <| Err <| DataMsg
+                    <| Data.Sign (JsonE.encode 0 <| Maybe.withDefault (JsonE.list []) data)
+                    <| \signedReq ->
+               Cmd.map (Err << GETResponse handler) <| Task.perform
                  handleError
                  Ok
-                 <| Http.post
-                       Data.decodeWithSession
-                       location
-                       (Http.string <| JsonE.encode 0 <| Data.encodeWithSession s)
+                 <| signedPost location signedReq
       )
-    GETResponse lastHash handler es ->
-      case es of
+    GETResponse handler eResponse ->
+      case eResponse of
         Err e -> (model, Cmd.map Ok <| handler <| Err e)
-        Ok s ->
+        Ok signedResp ->
           ( model
-          , case model.session of
-            Nothing -> Debug.crash "no session" -- TODO: logged out before response
-            Just s' ->
-              mkCmd <| Err <| DataMsg <| Data.CkWithSession lastHash s <| \isLegit ->
-                let newSession = updateSession s s'
-                in if isLegit
-                then Cmd.batch
-                        [ mkCmd <| Err <| UpdateSession newSession
-                        , mkCmd <| Err <| EveryMsg <| Every.Adjust
-                                    { reset = True -- was sucessful
-                                    , modify = \_ -> { lastResponse = True
-                                                    }
-                                    }
-                        , Cmd.map Ok <| handler <| Ok s.data
-                        ]
-                else Cmd.map Ok <| handler <| Err SessionMalicious
+          , mkCmd <| Err <| DataMsg <| Data.Open signedResp <| \mResponse ->
+              case mResponse of -- TODO: Fix sign_open errors
+                Nothing -> Cmd.map Ok <| handler <| Err SessionMalicious
+                Just response ->
+                  case JsonD.decodeString JsonD.value response of
+                    Err e -> Cmd.map Ok <| handler <| Err SessionMalicious
+                             -- really just not formatted right
+                    Ok x -> Cmd.batch
+                              [ mkCmd <| Err <| EveryMsg <| Every.Adjust
+                                  { reset = True -- was sucessful
+                                  , modify = \_ -> { lastResponse = True
+                                                   }
+                                  }
+                              , Cmd.map Ok <| handler <| Ok x
+                              ]
           )
     GETUnauthResponse handler es ->
       ( model
       , Cmd.map Ok <| handler es
       )
+    UpdateSession s ->
+      ( { model | session = Just s }
+      , Cmd.none
+      )
 
 
 subscriptions : Sub (Msg a)
 subscriptions =
-  Sub.batch
-    [ Sub.map NonceMsg Nonce.subscriptions
-    , Sub.map DataMsg  Data.subscriptions
-    ]
+  Sub.map DataMsg  Data.subscriptions
 
 
 -- login button
@@ -335,7 +282,8 @@ viewMenuItem : Model a -> Html (Msg a)
 viewMenuItem model =
   a [ class "item"
     , onClick <| case model.session of
-                   Nothing -> Login (User.Plain { username = "", password = "" }) (\_ -> Cmd.none)
+                   Nothing -> Login (User.Plain { username = "", password = "" })
+                                    (\_ -> Cmd.none)
                    Just _ -> Logout
     ] <|
     case model.session of

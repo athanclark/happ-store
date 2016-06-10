@@ -1,10 +1,10 @@
 port module Session.Data exposing
-  ( WithSession
-  , Hashed
-  , encodeWithSession
-  , decodeWithSession
+  ( SignedRequest
+  , SignedResponse
+  , encodeSignedRequest
+  , signedResponseDecoder
   , Model
-  , Msg (MkWithSession, CkWithSession)
+  , Msg (Sign, Open)
   , init
   , update
   , subscriptions
@@ -14,8 +14,6 @@ port module Session.Data exposing
 Note that this module should be used as a singleton
 -}
 
-import Session.Nonce as Nonce
-import Uuid
 import Json.Encode as JsonE
 import Json.Decode as JsonD exposing (Decoder, (:=))
 import Cmd.Extra exposing (mkCmd)
@@ -24,59 +22,74 @@ import Dict exposing (Dict)
 
 
 type alias ThreadId = Int
-type alias Hashed = String
+type alias Hex = String
 
+-- Ports
 
-type alias MakeSHASession =
+type alias MakeSignature =
   { threadId : ThreadId
-  , input    : String
+  , toSign   : String
   }
 
-port makeSHASession : MakeSHASession -> Cmd a
+port makeSignature : MakeSignature -> Cmd a
 
-type alias MadeSHASession =
+type alias MadeSignature =
+  { threadId  : ThreadId
+  , publicKey : Hex
+  , signature : Hex
+  }
+
+port madeSignature : (MadeSignature -> a) -> Sub a
+
+
+type alias OpenSignature =
   { threadId : ThreadId
-  , output   : Hashed
+  , toVerify : Hex
   }
 
-port madeSHASession : (MadeSHASession -> a) -> Sub a
+port openSignature : OpenSignature -> Cmd a
 
-
-
-type alias WithSession =
-  { nonce : Nonce.Nonce
-  , data  : JsonE.Value
-  , hash  : Hashed
+type alias OpenedSignature =
+  { threadId : ThreadId
+  , verified : Maybe String
   }
 
-encodeWithSession : WithSession -> JsonE.Value
-encodeWithSession { nonce, data, hash } =
+port openedSignature : (OpenedSignature -> a) -> Sub a
+
+
+-- Application
+
+type alias SignedRequest =
+  { publicKey : Hex
+  , signature : Hex
+  }
+
+encodeSignedRequest : SignedRequest -> JsonE.Value
+encodeSignedRequest { publicKey, signature } =
   JsonE.object
-    [ ( "nonce"
-      , JsonE.string <| Uuid.toString nonce
-      )
-    , ( "data", data
-      )
-    , ( "hash", JsonE.string hash
-      )
+    [ ("publicKey", JsonE.string publicKey)
+    , ("signature", JsonE.string signature)
     ]
 
-decodeWithSession : Decoder WithSession
-decodeWithSession =
-  JsonD.object3 WithSession
-    ("nonce" := JsonD.string `JsonD.andThen` \s ->
-                  case Uuid.fromString s of
-                    Nothing -> JsonD.fail "improperly formatted UUID"
-                    Just x  -> JsonD.succeed x)
-    ("data" := JsonD.value)
-    ("hash" := JsonD.string)
+fromMadeSignature : MadeSignature -> SignedRequest
+fromMadeSignature { publicKey, signature } =
+  { publicKey = publicKey, signature = signature }
+
+
+type alias SignedResponse = Hex
+
+signedResponseDecoder : Decoder SignedResponse
+signedResponseDecoder = JsonD.string
+
+fromOpenedSignature : OpenedSignature -> Maybe String
+fromOpenedSignature { verified } = verified
 
 -- Creation
 
 type alias Model a =
   { threadId  : ThreadId
-  , mkThreads : Dict ThreadId (Nonce.Nonce, JsonE.Value, WithSession -> Cmd a)
-  , ckThreads : Dict ThreadId (WithSession, Bool -> Cmd a)
+  , signThreads : Dict ThreadId (SignedRequest -> Cmd a)
+  , openThreads : Dict ThreadId (Maybe String  -> Cmd a)
   }
 
 freshThreadId : Model a -> (ThreadId, Model a)
@@ -86,15 +99,16 @@ freshThreadId model =
   )
 
 type Msg a
-  = MkWithSession Nonce.Nonce JsonE.Value (Maybe Hashed) (WithSession -> Cmd a)
-  | CkWithSession Hashed WithSession (Bool -> Cmd a)
-  | GotHash MadeSHASession
+  = Sign String         (SignedRequest -> Cmd a)
+  | Open SignedResponse (Maybe String  -> Cmd a)
+  | Signed MadeSignature
+  | Opened OpenedSignature
 
 init : (Model a, Cmd (Msg a))
 init =
   ( { threadId  = 0
-    , mkThreads = Dict.empty
-    , ckThreads = Dict.empty
+    , signThreads = Dict.empty
+    , openThreads = Dict.empty
     }
   , Cmd.none
   )
@@ -105,64 +119,58 @@ update : Msg a
       -> (Model a, Cmd (Result (Msg a) a))
 update action model =
   case action of
-    MkWithSession nonce data mLastHash onComplete ->
-      let nonce' = Uuid.toString nonce
-          data'  = JsonE.encode 0 data
-          (threadId, model') = freshThreadId model
-      in  ( { model' | mkThreads = Dict.insert
-                                     threadId
-                                     (nonce, data, onComplete)
-                                     model.mkThreads
+    Sign message onComplete ->
+      let (threadId, model') = freshThreadId model
+      in  ( { model' | signThreads = Dict.insert
+                                       threadId
+                                       onComplete
+                                       model.signThreads
             }
-          , makeSHASession
+          , makeSignature
               { threadId = threadId
-              , input    = nonce' ++ data' ++ Maybe.withDefault "" mLastHash
+              , toSign   = message
               }
           )
-    CkWithSession lastHash session onComplete ->
-      let nonce' = Uuid.toString session.nonce
-          data'  = JsonE.encode 0 session.data
-          (threadId, model') = freshThreadId model
-      in  ( { model' | ckThreads = Dict.insert
-                                     threadId
-                                     (session, onComplete)
-                                     model.ckThreads
+    Open signature onComplete ->
+      let (threadId, model') = freshThreadId model
+      in  ( { model' | openThreads = Dict.insert
+                                       threadId
+                                       onComplete
+                                       model.openThreads
             }
-          , makeSHASession
+          , openSignature
               { threadId = threadId
-              , input    = nonce' ++ data' ++ lastHash
+              , toVerify = signature
               }
           )
-    GotHash hashed ->
-      case Dict.get hashed.threadId model.mkThreads of
+    Signed made ->
+      case Dict.get made.threadId model.signThreads of
+        Nothing -> (model, Cmd.none)
+        Just onComplete ->
+          ( { model | signThreads = Dict.remove
+                                      made.threadId
+                                      model.signThreads
+            }
+          , Cmd.map Ok <| onComplete <| fromMadeSignature made
+          )
+    Opened opened ->
+      case Dict.get opened.threadId model.openThreads of
         Nothing ->
-          case Dict.get hashed.threadId model.ckThreads of
-            Nothing ->
-              ( model
-              , Cmd.none
-              )
-            Just (session, onComplete) ->
-              ( { model | ckThreads = Dict.remove
-                                        hashed.threadId
-                                        model.ckThreads
-                }
-              , Cmd.map Ok <| onComplete <| hashed.output == session.hash
-              )
-        Just (nonce, data, onComplete) ->
-          ( { model | mkThreads = Dict.remove
-                                    hashed.threadId
-                                    model.mkThreads
+          (model, Cmd.none)
+        Just onComplete ->
+          ( { model | openThreads = Dict.remove
+                                      opened.threadId
+                                      model.openThreads
             }
-          , Cmd.map Ok <| onComplete
-              { nonce = nonce
-              , data  = data
-              , hash  = hashed.output
-              }
+          , Cmd.map Ok <| onComplete <| fromOpenedSignature opened
           )
 
 
 subscriptions : Sub (Msg a)
 subscriptions =
-  madeSHASession GotHash
+  Sub.batch
+    [ madeSignature Signed
+    , openedSignature Opened
+    ]
 
 
