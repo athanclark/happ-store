@@ -1,37 +1,32 @@
-
 nacl_factory.instantiate(function(nacl) {
-    var keys = nacl.crypto_box_keypair();
-    var serverPk = nacl.from_hex(serverPk_);
-    var conn = nacl.crypto_box_precompute(serverPk, keys.boxSk);
+    var serverPk = nacl.from_hex(serverPk);
+    var keys = nacl.crypto_sign_keypair();
 
-    // String -> { nonce : Hex, packet : Hex, publicKey : Hex }
-    function encrypt(message) {
-        var message_ = nacl.encode_utf8(message);
-        var nonce = nacl.crypto_box_random_nonce();
-        var packet = nacl.crypto_box_precomputed(message_, nonce, conn);
+    // String -> { publicKey : Hex, signature : Hex }
+    function sign(message_) {
+        var message = nacl.encode_utf8(message_);
         return {
-            "nonce"     : nacl.to_hex(nonce),
-            "packet"    : nacl.to_hex(packet),
-            "publicKey" : nacl.to_hex(keys.boxPk)
+            "publicKey" : nacl.to_hex(keys.signPk),
+            "signature" : nacl.to_hex(nacl.crypto_sign(message, keys.signSk))
         };
     }
 
-    // { nonce : Hex, packet : Hex } -> { err : String } | { ok : String }
-    function decrypt(xs) {
+    // Hex -> Maybe String
+    function verify(signature_) {
         try {
-            var nonce = nacl.from_hex(xs.nonce);
-            var packet = nacl.from_hex(xs.packet);
-            var message = nacl.crypto_box_open_precomputed(packet, nonce, conn);
-            return {
-                "ok" : nacl.decode_utf8(message)
-            };
+            var signature = nacl.from_hex(signature_);
+            var message = nacl.crypto_sign_open(signature, serverPk);
+            if (message === null) {
+                return null;
+            } else {
+                return nacl.decode_utf8(message);
+            }
         } catch (e) {
-            console.error("NaCl decoding error:",e);
-            return {
-                "err" : JSON.stringify(e)
-            };
+            console.error("Decoding error:", e);
+            return null;
         }
     }
+
 
     var app = Elm.Main.fullscreen(
     );

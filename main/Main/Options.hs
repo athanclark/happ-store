@@ -12,7 +12,7 @@ import qualified Data.Aeson.Types as A
 import Data.Default
 import System.Directory
 import Path.Extended
-import Crypto.Saltine.Core.Box as NaCL
+import Crypto.Saltine.Core.Sign as NaCL
 import Data.TimeMap as TM
 import Data.Url
 import Data.Monoid

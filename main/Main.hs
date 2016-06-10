@@ -67,7 +67,7 @@ entry p m env = do
       let sessionCache = envSession env
       unless (envProduction env) $ do
         nonces <- atomically $ TM.toList sessionCache
-        putStrLn $ "Current Cache: " ++ show (fmap (second BS.encode) nonces)
+        putStrLn $ "Current Cache: " ++ show nonces
       let secondPico = 1000000
           secondDiff = 1
       TM.filterFromNow (60 * secondDiff) sessionCache

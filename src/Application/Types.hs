@@ -25,8 +25,8 @@ import Control.Monad.Logger
 import Control.Monad.Trans.Control
 import Control.Monad.Reader
 import Control.Monad.Catch
-import Crypto.Saltine.Core.Box as NaCl
-import Crypto.Saltine.Class    as NaCl
+import Crypto.Saltine.Core.Sign as NaCl
+import Crypto.Saltine.Class     as NaCl
 
 import GHC.Generics
 import Data.Typeable
@@ -56,8 +56,10 @@ type MonadApp m =
 
 -- A cache is a time-indexed mapping from nonces to accrued hashings
 -- TODO: UserId also
-type SessionCache = TimeMap UUID Hashed
-type Hashed = BS.ByteString
+type SessionCache = TimeMap SessionId UserId
+
+type SessionId = ClientPublicKey
+type UserId = () -- FIXME
 
 newtype ClientPublicKey = ClientPublicKey
   { getClientPublicKey :: BS.ByteString
@@ -73,23 +75,6 @@ instance FromJSON ClientPublicKey where
 toNaClPublicKey :: ClientPublicKey -> Maybe NaCl.PublicKey
 toNaClPublicKey (ClientPublicKey k) = NaCl.decode k
 
-newtype ClientNonce = ClientNonce
-  { getClientNonce :: BS.ByteString
-  } deriving (Show, Eq, Hashable)
-
-instance FromJSON ClientNonce where
-  parseJSON (String s) =
-    case BS16.decode $ T.encodeUtf8 s of
-      (decoded, rest) | rest /= "" -> fail "Not base-16 encoded"
-                      | otherwise  -> pure $ ClientNonce decoded
-  parseJSON _ = fail "Not a string"
-
-instance ToJSON ClientNonce where
-  toJSON (ClientNonce s) =
-    toJSON . T.decodeUtf8 . BS16.encode $ s
-
-toNaClNonce :: ClientNonce -> Maybe NaCl.Nonce
-toNaClNonce (ClientNonce n) = NaCl.decode n
 
 
 
@@ -182,16 +167,15 @@ appendActiveWhen _ _ c = c
 -- Exceptions
 
 data SessionException
-  = InvalidSessionHash
+  = InvalidSignedRequest
   | BadSessionFormat
-  | NonexistentNonce UUID
+  | NonexistentSessionId SessionId
   deriving (Generic, Show)
 
 instance Exception SessionException
 
 data LoginException
   = BadLoginFormat
-  | InvalidLoginHash
   deriving (Generic, Show)
 
 instance Exception LoginException

@@ -45,40 +45,20 @@ data LoginCredentials = LoginPlain
   deriving (Show, Eq)
 
 instance FromJSON LoginCredentials where
-  parseJSON (Object o) = do
-    u <- o .: "username"
-    p <- o .: "password"
-    return $ LoginPlain u p
+  parseJSON (Object o) =
+    LoginPlain <$> (o .: "username") <*> (o .: "password")
   parseJSON _ = empty
-
-instance ToJSON LoginCredentials where
-  toJSON ls =
-    object
-      [ "username" .= username ls
-      , "password" .= password ls
-      ]
 
 
 checkLoginRequest :: ( MonadApp m
-                     ) => SessionRequest LoginCredentials
-                       -> m (SessionRequest T.Text)
-checkLoginRequest s = do
-  let data'  = BSL.toStrict . A.encode $ sessionData s
-      nonce' = BSU8.fromString . UUID.toString $ sessionNonce s
-      expectedHash :: Digest SHA512
-      expectedHash = hash $ nonce' <> data'
-  when (convert expectedHash /= sessionHash s) $ throwM InvalidLoginHash
-  -- TODO: lookup user, etc.
+                     ) => SignedRequest
+                       -> m Signature
+checkLoginRequest x@(SignedRequest sId _) = do
+  let f :: MonadApp m => LoginCredentials -> m T.Text
+      f cs = pure "login success!" -- TODO: lookup user, etc.
   sessionCache <- envSession <$> ask
-  newNonce <- liftIO UUID.nextRandom
-  let payload   = "login success!" :: T.Text
-      payload'  = BSL.toStrict $ A.encode payload
-      newNonce' = BSU8.fromString $ UUID.toString newNonce
-      newHash  :: Digest SHA512
-      newHash   = hash $ newNonce' <> payload' <> BS64.encode (convert expectedHash)
-  liftIO $
-    TM.insert newNonce (convert newHash) sessionCache
-  return $ SessionRequest newNonce payload $ convert newHash
+  liftIO $ TM.insert sId () sessionCache
+  withSession f x
 
 
 loginHandle :: MonadApp m
@@ -86,20 +66,17 @@ loginHandle :: MonadApp m
 loginHandle app req respond =
   let handle = action $
         post $ do
-          ml <- liftIO $ A.decode <$> strictRequestBody req
-          l  <- case ml of
+          mx <- liftIO $ A.decode <$> strictRequestBody req
+          y  <- case mx of
                   Nothing -> throwM BadLoginFormat
-                  Just x  -> pure x
-          l' <- checkLoginRequest l
-          json l'
+                  Just x  -> checkLoginRequest x
+          json y
   in  (handle `catchMiddlewareT` errorCatcher) app req respond
 
 errorCatcher :: MonadApp m
              => LoginException -> MiddlewareT m
 errorCatcher e app req respond =
   case e of
-    InvalidLoginHash ->
-      respond $ textOnly "Invalid Login Hash!" status403 []
     BadLoginFormat ->
       respond $ textOnly "Malformed Data" status400 []
 

@@ -34,13 +34,16 @@ sessionHandle :: MonadApp m
 sessionHandle app req respond =
   let handle = action $
         post $ do
-          ml <- liftIO $ A.decode <$> strictRequestBody req
-          l  <- case ml of
+          let f :: MonadApp m => T.Text -> m T.Text
+              f x = if x == "ping"
+                    then pure "pong"
+                    else throwM BadSessionFormat
+          mx <- liftIO $ A.decode <$> strictRequestBody req
+          x  <- case mx of
                   Nothing -> throwM BadSessionFormat
-                  Just x  -> pure (x :: SessionRequest T.Text)
-          l' <- withSession l $ \_ ->
-                  pure ("pong" :: T.Text)
-          json l'
+                  Just x  -> pure x
+          y <- withSession f x
+          json y
   in  (handle `catchMiddlewareT` errorCatcher) app req respond
 
 
@@ -48,10 +51,10 @@ errorCatcher :: MonadApp m
              => SessionException -> MiddlewareT m
 errorCatcher e app req respond =
   case e of
-    InvalidSessionHash ->
-      respond $ textOnly "Invalid Session Hash!" status403 []
+    InvalidSignedRequest ->
+      respond $ textOnly "Invalid Signed Request!" status403 []
     BadSessionFormat ->
       respond $ textOnly "Malformed Data" status400 []
-    NonexistentNonce n -> do
-      liftIO . putStrLn $ "Nonce not found: " ++ show n
-      respond $ textOnly ("Nonce not found: " <> LT.pack (show n)) status404 []
+    NonexistentSessionId s -> do
+      liftIO . putStrLn $ "Session Id not found: " ++ show s
+      respond $ textOnly ("Session Id not found: " <> LT.pack (show s)) status404 []
