@@ -300,7 +300,7 @@ update onPingFail action model =
         Ok s ->
           ( model
           , case model.session of
-            Nothing -> Debug.crash "no session" -- TODO: Fixme
+            Nothing -> Debug.crash "no session" -- TODO: logged out before response
             Just s' ->
               mkCmd <| Err <| DataMsg <| Data.CkWithSession lastHash s <| \isLegit ->
                 let newSession = updateSession s s'

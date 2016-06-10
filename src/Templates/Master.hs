@@ -8,14 +8,18 @@ module Templates.Master where
 
 import Imports hiding (FileExt (..))
 
-import qualified Data.Text as T
-import qualified Data.Text.Lazy.IO as LT
+import qualified Data.Text               as T
+import qualified Data.Text.Lazy.IO       as LT
+import qualified Data.Text.Lazy.Encoding as LT
+import qualified Data.ByteString.Lazy    as LBS
+import qualified Data.ByteString.Base16  as BS16
 import Web.Page.Lucid
 import Lucid
 import Data.Markup
 import Data.Url
 import Path.Extended
 import qualified Network.Wai.Middleware.ContentType.Types as CT
+import Crypto.Saltine.Class as NaCl
 
 import Data.Monoid
 import Data.Default
@@ -75,7 +79,7 @@ masterPage =
              deploy JavaScript Remote semantic
              jssha <- lift (toLocation JsSHACdn)
              deploy JavaScript Remote jssha
-             jsNaCl <- lift (toLocation JsNaCLCdn)
+             jsNaCl <- lift (toLocation JsNaClCdn)
              deploy JavaScript Remote jsNaCl
 
       else hoist (`runAbsoluteUrlT` hostname) $ do
@@ -85,7 +89,7 @@ masterPage =
              deploy JavaScript Remote semantic
              jssha <- lift (toLocation JsSHA)
              deploy JavaScript Remote jssha
-             jsNaCl <- lift (toLocation JsNaCL)
+             jsNaCl <- lift (toLocation JsNaCl)
              deploy JavaScript Remote jsNaCl
 
     elmScripts :: MonadApp m => HtmlT m ()
@@ -94,9 +98,11 @@ masterPage =
       hoist (`runAbsoluteUrlT` hostname) $ do
         app <- lift (toLocation AppFrontend)
         deploy JavaScript Remote app
+      pk <- (LBS.fromStrict . BS16.encode . NaCl.encode . envPublicKey) <$> lift ask
+      let serverKey = "\nvar serverPk_ = \"" <> LT.decodeUtf8 pk <> "\";\n"
       cwd     <- envCwd <$> lift ask
       initElm <- liftIO . LT.readFile $ cwd ++ "/frontend/init.js"
-      deploy JavaScript Inline initElm
+      deploy JavaScript Inline $ serverKey <> initElm
 
     styleAssets :: MonadApp m => HtmlT m ()
     styleAssets = do

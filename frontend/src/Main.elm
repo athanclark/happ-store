@@ -56,7 +56,7 @@ type Msg
 
 
 -- type alias Flags =
---   {
+--   { privateKey : 
 --   }
 
 init : (Model, Cmd Msg)

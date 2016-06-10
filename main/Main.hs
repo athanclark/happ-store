@@ -33,11 +33,6 @@ import Control.Concurrent
 main :: IO ()
 main = do
   (env,p,m) <- getEnv
-  entry p m env
-
--- | Entry point, post options parsing
-entry :: Int -> Int -> Env -> IO ()
-entry p m env = do
   putStrLn $ unlines
     [ "Cooperate  Copyright (C) 2016  Athan Clark"
     , "This program comes with ABSOLUTELY NO WARRANTY; for details see"
@@ -56,10 +51,18 @@ entry p m env = do
     , "- static:     " <> envStatic env
     , "- production: " <> show (envProduction env)
     ]
+  entry p m env
 
+-- | Entry point
+entry :: Int -> Int -> Env -> IO ()
+entry p m env = do
   when (envProduction env) NaCL.optimize
-  Monitor.forkServer "localhost" m -- monitor
-  forkIO $ -- session cleaner
+
+  -- monitor
+  Monitor.forkServer "localhost" m
+
+  -- session cleaner
+  forkIO $
     forever $ do
       let sessionCache = envSession env
       unless (envProduction env) $ do
@@ -69,10 +72,12 @@ entry p m env = do
           secondDiff = 1
       TM.filterFromNow (60 * secondDiff) sessionCache
       threadDelay (5 * secondPico)
+
+  -- main app
   runEnv p $ server' defApp
   where
     server'  = gzip def
-           --  . logStdoutDev
+             . logStdoutDev
              . runMiddlewareT runAppT' server
     server   = securityLayer
              . staticLayer

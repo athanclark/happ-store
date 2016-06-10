@@ -4,22 +4,29 @@
   , FlexibleContexts
   , MultiParamTypeClasses
   , DeriveGeneric
+  , GeneralizedNewtypeDeriving
   #-}
 
 module Application.Types where
 
 import Path.Extended
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
+import qualified Data.ByteString as BS
+import qualified Data.ByteString.Base16 as BS16
+import Data.Aeson
 import Data.Monoid
 import Data.Url
 import Data.TimeMap
 import Data.UUID
-import Data.ByteString (ByteString)
+import Data.Hashable
+import Control.Monad (fail)
 import Control.Monad.Logger
 import Control.Monad.Trans.Control
 import Control.Monad.Reader
 import Control.Monad.Catch
-import Crypto.Saltine.Core.Box as NaCL
+import Crypto.Saltine.Core.Box as NaCl
+import Crypto.Saltine.Class    as NaCl
 
 import GHC.Generics
 import Data.Typeable
@@ -50,7 +57,41 @@ type MonadApp m =
 -- A cache is a time-indexed mapping from nonces to accrued hashings
 -- TODO: UserId also
 type SessionCache = TimeMap UUID Hashed
-type Hashed = ByteString
+type Hashed = BS.ByteString
+
+newtype ClientPublicKey = ClientPublicKey
+  { getClientPublicKey :: BS.ByteString
+  } deriving (Show, Eq, Hashable)
+
+instance FromJSON ClientPublicKey where
+  parseJSON (String s) =
+    case BS16.decode $ T.encodeUtf8 s of
+      (decoded, rest) | rest /= "" -> fail "Not base-16 encoded"
+                      | otherwise  -> pure $ ClientPublicKey decoded
+  parseJSON _ = fail "Not a string"
+
+toNaClPublicKey :: ClientPublicKey -> Maybe NaCl.PublicKey
+toNaClPublicKey (ClientPublicKey k) = NaCl.decode k
+
+newtype ClientNonce = ClientNonce
+  { getClientNonce :: BS.ByteString
+  } deriving (Show, Eq, Hashable)
+
+instance FromJSON ClientNonce where
+  parseJSON (String s) =
+    case BS16.decode $ T.encodeUtf8 s of
+      (decoded, rest) | rest /= "" -> fail "Not base-16 encoded"
+                      | otherwise  -> pure $ ClientNonce decoded
+  parseJSON _ = fail "Not a string"
+
+instance ToJSON ClientNonce where
+  toJSON (ClientNonce s) =
+    toJSON . T.decodeUtf8 . BS16.encode $ s
+
+toNaClNonce :: ClientNonce -> Maybe NaCl.Nonce
+toNaClNonce (ClientNonce n) = NaCl.decode n
+
+
 
 -- The environment accessible from our application
 data Env = Env
@@ -99,8 +140,8 @@ data AppResources
   | SemanticCssCdn
   | JsSHA
   | JsSHACdn
-  | JsNaCL
-  | JsNaCLCdn
+  | JsNaCl
+  | JsNaClCdn
   | LessStyles
   | AppFrontend
   deriving (Show, Eq)
@@ -114,8 +155,8 @@ instance ToPath AppResources Abs File where
   toPath SemanticCssCdn   = parseAbsFile "/ajax/libs/semantic-ui/2.1.8/semantic"
   toPath JsSHACdn         = parseAbsFile "/ajax/libs/jsSHA/2.1.0/sha"
   toPath JsSHA            = parseAbsFile "/vendor/jsSHA/src/sha"
-  toPath JsNaCL           = parseAbsFile "/vendor/js-nacl/lib/nacl_factory"
-  toPath JsNaCLCdn        = parseAbsFile "/ajax/libs/js-nacl/1.2.0/nacl_factory"
+  toPath JsNaCl           = parseAbsFile "/vendor/js-nacl/lib/nacl_factory"
+  toPath JsNaClCdn        = parseAbsFile "/ajax/libs/js-nacl/1.2.0/nacl_factory"
   toPath LessStyles       = parseAbsFile "/style"
   toPath AppFrontend      = parseAbsFile "/Main"
 
@@ -128,8 +169,8 @@ instance ToLocation AppResources Abs File where
   toLocation SemanticCssCdn   = (addFileExt "min.css" . fromPath) <$> toPath SemanticCssCdn
   toLocation JsSHACdn         = (addFileExt "js"      . fromPath) <$> toPath JsSHACdn
   toLocation JsSHA            = (addFileExt "js"      . fromPath) <$> toPath JsSHA
-  toLocation JsNaCL           = (addFileExt "js"      . fromPath) <$> toPath JsNaCL
-  toLocation JsNaCLCdn        = (addFileExt "min.js"  . fromPath) <$> toPath JsNaCLCdn
+  toLocation JsNaCl           = (addFileExt "js"      . fromPath) <$> toPath JsNaCl
+  toLocation JsNaClCdn        = (addFileExt "min.js"  . fromPath) <$> toPath JsNaClCdn
   toLocation LessStyles       = (addFileExt "css"     . fromPath) <$> toPath LessStyles
   toLocation AppFrontend      = (addFileExt "min.js"  . fromPath) <$> toPath AppFrontend
 

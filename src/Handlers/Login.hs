@@ -38,8 +38,6 @@ import Data.UUID.V4 as UUID
 
 
 
-
-
 data LoginCredentials = LoginPlain
       { username :: String
       , password :: String

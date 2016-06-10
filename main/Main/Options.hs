@@ -94,7 +94,8 @@ appOpts = AppOpts
         ( long "static"
        <> short 's'
        <> metavar "STATIC"
-       <> help "absolute directory to search for servable static files - DEF: `pwd`/static/" ))
+       <> help "absolute directory to search for servable static files\
+               \ - DEF: `pwd`/static/" ))
   <*> optional ( switch
         ( long "production"
        <> help "whether or not to run the app in production mode" ))
