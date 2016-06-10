@@ -21,12 +21,6 @@ import Data.Aeson as A hiding (json)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Catch
 
-import Crypto.Hash
-import Data.ByteString.Base64
-import Data.UUID.V4
-import Data.UUID as UUID
-
-
 
 
 sessionHandle :: MonadApp m

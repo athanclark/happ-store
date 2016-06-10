@@ -25,8 +25,6 @@ import qualified Data.ByteString        as BS
 import qualified Data.ByteString.Lazy   as LBS
 import qualified Data.ByteString.Base16 as BS16
 import Data.ByteArray (convert)
-import Data.UUID.V4 as UUID
-import Data.UUID    as UUID
 import Data.Time (getCurrentTime)
 
 

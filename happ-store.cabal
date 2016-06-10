@@ -36,10 +36,8 @@ Library
                       , attoparsec
                       , aeson
                       , base16-bytestring
-                      , base64-bytestring
                       , bytestring
                       , containers
-                      , cryptonite
                       , data-default
                       , directory
                       , errors
@@ -67,8 +65,6 @@ Library
                       , timemap >= 0.0.3
                       , unordered-containers >= 0.2
                       , urlpath >= 5.0.0.1
-                      , uuid
-                      , utf8-string
                       , wai
                       , wai-extra
                       , wai-transformers >= 0.0.5
@@ -105,10 +101,8 @@ Executable happ-store
                       , attoparsec
                       , aeson
                       , base16-bytestring
-                      , base64-bytestring
                       , bytestring
                       , containers
-                      , cryptonite
                       , directory
                       , data-default
                       , ekg
@@ -138,8 +132,6 @@ Executable happ-store
                       , timemap
                       , urlpath
                       , unordered-containers >= 0.2
-                      , uuid
-                      , utf8-string
                       , warp
                       , wai-extra
                       , wai-transformers

@@ -15,7 +15,6 @@ import Network.Wai.Handler.Warp
 import Network.Wai.Middleware.Gzip
 import Network.Wai.Middleware.RequestLogger
 import System.Remote.Monitoring as Monitor
-import qualified Data.ByteString.Base64 as BS
 import Data.TimeMap as TM
 import Crypto.Saltine as NaCL
 

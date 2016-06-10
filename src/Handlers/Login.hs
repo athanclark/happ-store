@@ -26,15 +26,9 @@ import Data.Monoid
 import Data.Aeson as A hiding (json)
 import Data.TimeMap as TM
 import qualified Data.Text as T
-import Crypto.Hash
 import qualified Data.ByteString        as BS
 import qualified Data.ByteString.Lazy   as BSL
-import qualified Data.ByteString.Base64 as BS64
-import qualified Data.ByteString.UTF8   as BSU8
 import Data.ByteArray (convert)
-import Data.UUID as UUID
-import Data.UUID as UUID
-import Data.UUID.V4 as UUID
 
 
 

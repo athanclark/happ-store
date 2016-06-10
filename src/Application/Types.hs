@@ -18,7 +18,6 @@ import Data.Aeson
 import Data.Monoid
 import Data.Url
 import Data.TimeMap
-import Data.UUID
 import Data.Hashable
 import Control.Monad (fail)
 import Control.Monad.Logger
