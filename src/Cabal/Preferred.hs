@@ -197,7 +197,6 @@ fetchPreferred = do
       nameAndPrefs :: MonadApp m => LT.Text -> m (PackageName, Preferred)
       nameAndPrefs l = do
         let (n,p) = LT.span (not . startingPref) l
-        liftIO $ putStrLn $ show (n,p)
         p' <- parsePref $ LT.strip p
         pure (T.strip $ LT.toStrict n, p')
   ys <- mapM nameAndPrefs xs

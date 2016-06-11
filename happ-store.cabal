@@ -18,6 +18,9 @@ Library
                         Application.Types
                         Cabal
                         Cabal.Preferred
+                        Cabal.Deprecated
+                        Cabal.Docs
+                        Cabal.Distros
                         Pages.Home
                         Pages.NotFound
                         Handlers

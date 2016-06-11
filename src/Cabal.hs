@@ -39,7 +39,6 @@ fetchCabal packageName version = do
 
 data Package = Package
   { name        :: String
-  , version     :: [Int]
   , author      :: String
   , maintainer  :: String
   , license     :: License
@@ -49,23 +48,24 @@ data Package = Package
   , stability   :: String
   , homepage    :: Maybe String
   , sourceRepos :: [SourceRepo]
-  -- , isPreferred :: Bool
-  -- , isDeprecated :: Bool
+  -- , isDeprecated :: Bool -- done!
   -- , rating :: ? Votes?
   -- , tags :: ... user suggested also, maybe just a sum type or something
-  -- , docs :: ... Bool?
+  -- , docs :: ... Bool? -- done!
   -- , downloads :: Int
   -- , reviews :: [ReviewId] or something horrid
            -- egad, rating reviews too?
   -- , uploadedAt :: UTCTime
   -- , distributions :: NixOS | Stackage | LTSHaskell | ...
+
+  -- TODO: Make versions their own thing: we shouldn't have a different package
+  --       concept for every version
   }
 
 makePackage :: GenericPackageDescription -> Package
 makePackage xs =
   let p = C.packageDescription xs
   in  Package { name        = unPackageName . pkgName    . C.package $ p
-              , version     = versionBranch . pkgVersion . C.package $ p
               , author      = C.author p
               , maintainer  = C.maintainer p
               , license     = C.license p
@@ -79,14 +79,11 @@ makePackage xs =
               }
 
 
-
--- TODO: Collect database of deprecated packages routinely, like every few days
--- TODO: Collect database of preferred versions routinely, parse them and build a
---       predicate to see if a version is preferred or not
 -- TODO: Collect database of download stats routinely
--- TODO: Collect database of docs stats
--- TODO: use /packages/ to know the full set of packages available
--- TODO: use /package/:package-version/upload-time to find the upload time
 -- TODO: download stats may need to be scraped from HTML :\
+-- TODO: use /packages/ to know the full set of packages available
+-- TODO: use /package/:package/preferred to know the set of versions for each package
+    -- populate data from most recent normal version
+-- TODO: use /package/:package-version/upload-time to find the upload time
 -- TODO: use /distro/:distro/packages to reverse-key assign each package its latest
 --       designated distro available
