@@ -1,5 +1,6 @@
+
 nacl_factory.instantiate(function(nacl) {
-    var serverPk = nacl.from_hex(serverPk);
+    var serverPk = nacl.from_hex(serverPk_);
     var keys = nacl.crypto_sign_keypair();
 
     // String -> { publicKey : Hex, signature : Hex }
@@ -41,20 +42,10 @@ nacl_factory.instantiate(function(nacl) {
     });
 
     app.ports.openSignature.subscribe(function(xs) {
+        var ys = verify(xs.toVerify);
         app.ports.openedSignature.send({
             "threadId" : xs.threadId,
-            "verified" : verify(xs.toVerify)
-        });
-    })
-
-    // sha256
-    app.ports.makeSHASession.subscribe(function(xs) {
-        var shaObj = new jsSHA("SHA-512", "TEXT");
-        shaObj.update(xs.input);
-        var hash = shaObj.getHash("B64");
-        app.ports.madeSHASession.send({
-            threadId : xs.threadId,
-            output   : hash
+            "verified" : ys
         });
     });
 });

@@ -43,7 +43,7 @@ makeSession : Maybe String -> Maybe Session
 makeSession ms =
   case ms of
     Nothing -> Nothing
-    Just s  -> if s == "login success!"
+    Just s  -> if s == JsonE.encode 0 (JsonE.string "login success!")
                then Just { user = () }
                else Nothing
 
