@@ -14,17 +14,19 @@ import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base16 as BS16
-import Network.HTTP.Client (Manager)
+import Network.HTTP.Client (Manager, newManager)
+import Network.HTTP.Client.TLS (tlsManagerSettings)
 import Data.Aeson
 import Data.Monoid
 import Data.Url
-import Data.TimeMap
+import Data.TimeMap as TM
 import Data.Hashable
 import Control.Monad (fail)
 import Control.Monad.Logger
 import Control.Monad.Trans.Control
 import Control.Monad.Reader
 import Control.Monad.Catch
+import Control.Concurrent.STM (atomically)
 import Crypto.Saltine.Core.Sign as NaCl
 import Crypto.Saltine.Class     as NaCl
 
@@ -35,7 +37,7 @@ import Data.Typeable
 type AppM a = LoggingT (ReaderT Env IO) a
 
 runAppT :: AppM a -> Env -> IO a
-runAppT hs = runReaderT $ runStderrLoggingT hs
+runAppT = runReaderT . runStderrLoggingT
 
 type AppTemplateT m = AbsoluteUrlT m
 
@@ -103,6 +105,23 @@ instance Show Env where
 instance Eq Env where
   (Env a1 c1 s1 p1 _ _ _ _) == (Env a2 c2 s2 p2 _ _ _ _) =
     a1 == a2 && c1 == c2 && s1 == s2 && p1 == p2
+
+-- | A really terrible environment value that should only be used with testing
+emptyEnv :: IO Env
+emptyEnv = do
+  t       <- atomically TM.newTimeMap
+  (sk,pk) <- NaCl.newKeypair
+  m       <- newManager tlsManagerSettings
+  let auth = UrlAuthority "http" True Nothing "localhost" Nothing
+  pure Env { envAuthority  = auth
+           , envCwd        = "/"
+           , envStatic     = "/"
+           , envProduction = False
+           , envSession    = t
+           , envPublicKey  = pk
+           , envSecretKey  = sk
+           , envManager    = m
+           }
 
 -- | Data type representing top navigation bar
 data AppLinks

@@ -17,6 +17,7 @@ Library
                         Application
                         Application.Types
                         Cabal
+                        Cabal.Preferred
                         Pages.Home
                         Pages.NotFound
                         Handlers
@@ -52,6 +53,7 @@ Library
                       , lucid
                       , markup >= 3.1.0
                       , memory
+                      , MissingH
                       , mmorph
                       , monad-control
                       , monad-logger
@@ -62,6 +64,7 @@ Library
                       , resourcet
                       , safecopy
                       , saltine
+                      , split
                       , stm
                       , text
                       , transformers
@@ -123,6 +126,7 @@ Executable happ-store
                       , lucid
                       , markup
                       , memory
+                      , MissingH
                       , mmorph
                       , monad-control
                       , monad-logger
@@ -134,6 +138,7 @@ Executable happ-store
                       , resourcet
                       , safecopy
                       , saltine
+                      , split
                       , stm
                       , text
                       , transformers

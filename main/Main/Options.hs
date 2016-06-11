@@ -12,7 +12,7 @@ import qualified Data.Aeson.Types as A
 import Data.Default
 import System.Directory
 import Path.Extended
-import Crypto.Saltine.Core.Sign as NaCL
+import Crypto.Saltine.Core.Sign as NaCl
 import Network.HTTP.Client (newManager)
 import Network.HTTP.Client.TLS (tlsManagerSettings)
 
@@ -179,9 +179,9 @@ appOptsToEnv (AppOpts (Just p)
                       (Just c)
                       (Just s)
                       (Just pr)) = do
-  t <- atomically TM.newTimeMap
-  (sk,pk) <- NaCL.newKeypair
-  m <- newManager tlsManagerSettings
+  t       <- atomically TM.newTimeMap
+  (sk,pk) <- NaCl.newKeypair
+  m       <- newManager tlsManagerSettings
   let auth = UrlAuthority "http" True Nothing h $ p <$ guard (p /= 80)
   pure Env { envAuthority  = auth
            , envCwd        = c
