@@ -172,7 +172,8 @@ update onPingFail action model =
       )
     PingSession e ->
       ( model
-      , let message = Debug.log "pinging..." <| "ping"
+      , let message = Debug.log "pinging..."
+                    <| JsonE.encode 0 <| JsonE.string "ping"
         in  mkCmd <| Err <| DataMsg <| Data.Sign message <| \signedReq ->
             Cmd.map (Err << PingSessionResponse) <| Task.perform
               (\e -> case e of
