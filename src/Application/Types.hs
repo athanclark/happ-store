@@ -166,7 +166,7 @@ appendActiveWhen _ _ c = c
 -- Exceptions
 
 data SessionException
-  = InvalidSignedRequest
+  = InvalidSignedRequest String
   | BadSessionFormat
   | NonexistentSessionId SessionId
   deriving (Generic, Show)

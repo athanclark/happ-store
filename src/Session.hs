@@ -27,6 +27,8 @@ import qualified Data.ByteString.Base16 as BS16
 import Data.ByteArray (convert)
 import Data.Time (getCurrentTime)
 
+import Debug.Trace
+
 
 -- * Signatures
 
@@ -85,8 +87,13 @@ withSession :: ( MonadApp m
                  -> m Signature
 withSession f req@(SignedRequest sId sig) =
   case verify req of
-    Nothing -> throwM InvalidSignedRequest
-    Just x  -> sign =<< f x
+    Nothing -> throwM $ InvalidSignedRequest $ show req
+    Just x  -> do
+      -- update the session id
+      sessionCache <- envSession <$> ask
+      liftIO $ TM.touch sId sessionCache
+      sign =<< f x
+
  -- TODO: Authentication; for each route? Some kind of UserId -> Credentials doodad?
  -- sessionCache <- envSession <$> ask
  -- storedUserId <- do

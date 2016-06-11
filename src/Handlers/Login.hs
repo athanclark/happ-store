@@ -52,7 +52,7 @@ checkLoginRequest x@(SignedRequest sId _) = do
       f cs = pure "login success!" -- TODO: lookup user, etc.
   sessionCache <- envSession <$> ask
   liftIO $ TM.insert sId () sessionCache
-  withSession f x
+  withSession f x -- redundantly touches sId, meh
 
 
 loginHandle :: MonadApp m

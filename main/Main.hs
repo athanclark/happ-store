@@ -21,7 +21,6 @@ import Crypto.Saltine as NaCL
 import Data.Url
 import Data.Monoid
 import Control.Monad
-import Control.Arrow (second)
 import Control.Concurrent.STM (atomically)
 import Control.Concurrent
 
@@ -64,9 +63,9 @@ entry p m env = do
   forkIO $
     forever $ do
       let sessionCache = envSession env
-      unless (envProduction env) $ do
-        nonces <- atomically $ TM.toList sessionCache
-        putStrLn $ "Current Cache: " ++ show nonces
+     -- unless (envProduction env) $ do
+      nonces <- atomically $ TM.toList sessionCache
+      putStrLn $ "Current Cache: " ++ show nonces
       let secondPico = 1000000
           secondDiff = 1
       TM.filterFromNow (60 * secondDiff) sessionCache
@@ -76,7 +75,7 @@ entry p m env = do
   runEnv p $ server' defApp
   where
     server'  = gzip def
-             . logStdoutDev
+            -- . logStdoutDev
              . runMiddlewareT runAppT' server
     server   = securityLayer
              . staticLayer
