@@ -13,6 +13,9 @@ import Data.Default
 import System.Directory
 import Path.Extended
 import Crypto.Saltine.Core.Sign as NaCL
+import Network.HTTP.Client (newManager)
+import Network.HTTP.Client.TLS (tlsManagerSettings)
+
 import Data.TimeMap as TM
 import Data.Url
 import Data.Monoid
@@ -178,6 +181,7 @@ appOptsToEnv (AppOpts (Just p)
                       (Just pr)) = do
   t <- atomically TM.newTimeMap
   (sk,pk) <- NaCL.newKeypair
+  m <- newManager tlsManagerSettings
   let auth = UrlAuthority "http" True Nothing h $ p <$ guard (p /= 80)
   pure Env { envAuthority  = auth
            , envCwd        = c
@@ -185,6 +189,7 @@ appOptsToEnv (AppOpts (Just p)
            , envProduction = pr
            , envSession    = t
            , envPublicKey  = pk
-           , envSecretKey  =sk
+           , envSecretKey  = sk
+           , envManager    = m
            }
 appOptsToEnv os = error $ "AppOpts improperly formatted: " ++ show os

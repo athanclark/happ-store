@@ -16,6 +16,7 @@ Library
   Exposed-Modules:      Server
                         Application
                         Application.Types
+                        Cabal
                         Pages.Home
                         Pages.NotFound
                         Handlers
@@ -37,12 +38,15 @@ Library
                       , aeson
                       , base16-bytestring
                       , bytestring
+                      , Cabal
                       , containers
                       , data-default
                       , directory
                       , errors
                       , exceptions
                       , hashable
+                      , http-client
+                      , http-client-tls
                       , http-types
                       , ixset
                       , lucid
@@ -65,6 +69,7 @@ Library
                       , timemap >= 0.0.4
                       , unordered-containers >= 0.2
                       , urlpath >= 5.0.0.1
+                      , utf8-string
                       , wai
                       , wai-extra
                       , wai-transformers >= 0.0.5
@@ -81,6 +86,7 @@ Executable happ-store
   Other-Modules:        Main.Options
                         Application
                         Application.Types
+                        Cabal
                         Pages.Home
                         Pages.NotFound
                         Handlers
@@ -102,6 +108,7 @@ Executable happ-store
                       , aeson
                       , base16-bytestring
                       , bytestring
+                      , Cabal
                       , containers
                       , directory
                       , data-default
@@ -109,6 +116,8 @@ Executable happ-store
                       , errors
                       , exceptions
                       , hashable
+                      , http-client
+                      , http-client-tls
                       , http-types
                       , ixset
                       , lucid
@@ -132,6 +141,7 @@ Executable happ-store
                       , timemap
                       , urlpath
                       , unordered-containers >= 0.2
+                      , utf8-string
                       , warp
                       , wai-extra
                       , wai-transformers
