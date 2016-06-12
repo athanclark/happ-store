@@ -80,7 +80,7 @@ java -jar ${HOME}/Downloads/compiler.jar dist/Main.js --js_output_file=dist/Main
 
 > assuming GoogleCC lives in `~/Downloads`
 
-## Client Demo File
+## Client Demo File (optional)
 
 If you look closely in `./frontend`, you'll see a `index-param.html` file that
 has a funny syntax. This is a _parametric text file_, and can be used to build a
