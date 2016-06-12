@@ -1,11 +1,25 @@
+{-# LANGUAGE
+    TemplateHaskell
+  , DeriveDataTypeable
+  , GeneralizedNewtypeDeriving
+  #-}
+
 module Server.Types where
 
+import Data.Acid
+import Data.SafeCopy
+import Data.Data
 
 
 -- | Basically a percentage, where %50 is identity
 newtype Vote = Vote
   { getVote :: Float
-  } deriving (Eq)
+  } deriving (Eq, Ord, Data, Typeable)
+
+$(deriveSafeCopy 0 'base ''Vote)
+
+instance Show Vote where
+  show (Vote p) = take 4 (show $ p * 100) ++ "%"
 
 makeVote :: Float -> Maybe Vote
 makeVote x
