@@ -41,9 +41,9 @@ packages:
   - '.'
   - '../nested-routes'
   - '../timemap'
-  - '../wai-transformers'
-  - '../wai-middleware-verbs'
-  - '../rose-trees'
+    # - '../wai-transformers'
+    # - '../wai-middleware-verbs'
+    # - '../rose-trees'
 # The following packages have been ignored due to incompatibility with the
 # resolver compiler, dependency conflicts with other packages
 # or unsatisfied dependencies.
@@ -74,6 +74,9 @@ extra-deps:
   - hslua-0.4.1
   - zlib-enum-0.2.3.1
   - monads-tf-0.1.0.3
+  - wai-transformers-0.0.5
+  - wai-middleware-verbs-0.3.0
+  - rose-trees-0.0.4.1
 
 # Override default flag values for local packages and extra-deps
 flags: {}
