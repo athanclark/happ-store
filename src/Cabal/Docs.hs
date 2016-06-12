@@ -6,6 +6,7 @@
 
 module Cabal.Docs where
 
+import Cabal.Types
 import Imports hiding (requestHeaders)
 
 import Data.Aeson
@@ -14,23 +15,19 @@ import qualified Data.ByteString.Lazy as LBS
 import Network.HTTP.Client
 import Data.HashMap.Strict as HM hiding (map, foldr, filter, null)
 import Data.Char (isDigit)
-import Data.Maybe (listToMaybe)
+import Data.Maybe (listToMaybe, fromJust)
 import Control.Monad.Catch
 import Control.Monad.Reader
 
 import GHC.Generics
 
 
-type PackageName = T.Text
-type Version = [Int]
-
 parsePackageNV :: T.Text -> (PackageName, [Version])
 parsePackageNV s =
   let (vs,n) = T.span (\x -> isDigit x || x == '.') $ T.reverse s
   in  ( T.dropEnd 1 $ T.reverse n
-      , [map (read . T.unpack) $ T.splitOn "." $ T.reverse vs]
+      , [fromJust . parseVersion . T.reverse $ vs]
       )
-
 
 data DocsError
   = DocsNoParse LBS.ByteString

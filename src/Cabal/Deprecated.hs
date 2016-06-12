@@ -6,6 +6,7 @@
 
 module Cabal.Deprecated where
 
+import Cabal.Types
 import Imports hiding (requestHeaders)
 
 import Data.Aeson
@@ -20,8 +21,6 @@ import Control.Arrow
 
 import GHC.Generics
 
-
-type PackageName = T.Text
 
 data DeprecatedPackage = DeprecatedPackage
   { packageName  :: PackageName

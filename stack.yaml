@@ -43,6 +43,7 @@ packages:
   - '../timemap'
   - '../wai-transformers'
   - '../wai-middleware-verbs'
+  - '../rose-trees'
 # The following packages have been ignored due to incompatibility with the
 # resolver compiler, dependency conflicts with other packages
 # or unsatisfied dependencies.

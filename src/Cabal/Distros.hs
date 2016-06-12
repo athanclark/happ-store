@@ -1,11 +1,11 @@
 {-# LANGUAGE
     OverloadedStrings
-  , DeriveGeneric
   , FlexibleContexts
   #-}
 
 module Cabal.Distros where
 
+import Cabal.Types
 import Imports hiding (requestHeaders)
 
 import Data.Aeson
@@ -16,16 +16,14 @@ import qualified Data.ByteString.Lazy as LBS
 import Network.HTTP.Client
 import Data.HashMap.Strict as HM hiding (map, foldr, filter)
 import Data.Char (isDigit)
+import Data.Maybe (fromJust)
 import Control.Monad.Catch
 import Control.Monad.Reader
 
 import GHC.Generics
 
 
-type PackageName = T.Text
-type Distro      = T.Text
-type Version     = [Int]
-
+type Distro = T.Text
 
 fetchDistros :: MonadApp m => m (HashMap PackageName (HashMap Distro (Version, T.Text)))
 fetchDistros = do
@@ -42,7 +40,7 @@ fetchDistros = do
         fromLine s = let [n,_,v,h] = LT.words s
                      in  ( LT.toStrict n
                          , [ ( LT.toStrict d
-                             , ( (read . LT.unpack) <$> LT.splitOn "." (LT.dropEnd 1 v)
+                             , ( fromJust . parseVersion . T.dropEnd 1 . LT.toStrict $ v
                                , LT.toStrict h
                                )
                              )
