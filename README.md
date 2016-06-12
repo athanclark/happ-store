@@ -25,6 +25,11 @@ cd happ-store
 
 ### Server
 
+First and foremost, you will need the [libsodium](https://download.libsodium.org/doc/)
+library; it's used for session authenticity, and the server won't build without it.
+In Ubuntu, it's something like `apt-get install libsodium-dev` (not even sure if
+you need development files), but generally you just need the library available.
+
 Use [stack](http://docs.haskellstack.org/en/stable/README/) and the `stack.yaml`
 included in the source code distribution:
 
