@@ -47,7 +47,7 @@ parseUploadTime t =
         }
 
 fetchUploadTime :: MonadApp m => PackageName -> Version -> m (Maybe UTCTime)
-fetchUploadTime package version = do
+fetchUploadTime (PackageName package) version = do
   manager  <- envManager <$> ask
   let url = "https://hackage.haskell.org/package/"
          ++ T.unpack package ++ "-" ++ show version ++ "/upload-time"

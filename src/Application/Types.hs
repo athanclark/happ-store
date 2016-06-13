@@ -4,10 +4,15 @@
   , FlexibleContexts
   , MultiParamTypeClasses
   , DeriveGeneric
+  , DeriveDataTypeable
   , GeneralizedNewtypeDeriving
+  , TemplateHaskell
   #-}
 
 module Application.Types where
+
+import Server.Types
+import Schema
 
 import Path.Extended
 import qualified Data.Text as T
@@ -21,6 +26,8 @@ import Data.Monoid
 import Data.Url
 import Data.TimeMap as TM
 import Data.Hashable
+import Data.Data
+import Data.SafeCopy
 import Control.Monad (fail)
 import Control.Monad.Logger
 import Control.Monad.Trans.Control
@@ -34,34 +41,9 @@ import GHC.Generics
 import Data.Typeable
 
 
-type AppM a = LoggingT (ReaderT Env IO) a
+-- * Global Variables
 
-runAppT :: AppM a -> Env -> IO a
-runAppT = runReaderT . runStderrLoggingT
-
-type AppTemplateT m = AbsoluteUrlT m
-
-runAppTemplateT :: AppTemplateT m a -> UrlAuthority -> m a
-runAppTemplateT = runAbsoluteUrlT
-
-
-type MonadApp m =
-  ( MonadIO m
-  , MonadThrow m
-  , MonadCatch m
-  , MonadLogger m
-  , MonadReader Env m
-  , MonadUrl Abs File m
-  , MonadBaseControl IO m
-  , Typeable m
-  )
-
--- A cache is a time-indexed mapping from nonces to accrued hashings
--- TODO: UserId also
-type SessionCache = TimeMap SessionId UserId
-
-type SessionId = ClientPublicKey
-type UserId = () -- FIXME
+-- ** Sessions
 
 newtype ClientPublicKey = ClientPublicKey
   { getClientPublicKey :: BS.ByteString
@@ -78,7 +60,13 @@ toNaClPublicKey :: ClientPublicKey -> Maybe NaCl.PublicKey
 toNaClPublicKey (ClientPublicKey k) = NaCl.decode k
 
 
+type SessionId = ClientPublicKey
 
+-- A cache is a time-indexed mapping from nonces to accrued hashings
+type SessionCache = TimeMap SessionId UserId
+
+
+-- ** The Execution Environment
 
 -- The environment accessible from our application
 data Env = Env
@@ -123,6 +111,35 @@ emptyEnv = do
            , envManager    = m
            }
 
+
+-- * Application Effects Stack
+
+type AppM a = LoggingT (ReaderT Env IO) a
+
+runAppT :: AppM a -> Env -> IO a
+runAppT = runReaderT . runStderrLoggingT
+
+type AppTemplateT m = AbsoluteUrlT m
+
+runAppTemplateT :: AppTemplateT m a -> UrlAuthority -> m a
+runAppTemplateT = runAbsoluteUrlT
+
+
+type MonadApp m =
+  ( MonadIO m
+  , MonadThrow m
+  , MonadCatch m
+  , MonadLogger m
+  , MonadReader Env m
+  , MonadUrl Abs File m
+  , MonadBaseControl IO m
+  , Typeable m
+  )
+
+
+
+-- * Inter-App Hrefs
+
 -- | Data type representing top navigation bar
 data AppLinks
   = AppHome
@@ -137,6 +154,7 @@ instance ToPath AppLinks Abs File where
 
 instance ToLocation AppLinks Abs File where
   toLocation x = fromPath <$> toPath x
+
 
 data AppResources
   = JQuery
@@ -186,7 +204,7 @@ appendActiveWhen x (Just y) c | x == y = c <> " active"
 appendActiveWhen _ _ c = c
 
 
--- Exceptions
+-- * Exceptions
 
 data SessionException
   = InvalidSignedRequest String

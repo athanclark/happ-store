@@ -1,6 +1,9 @@
 {-# LANGUAGE
     OverloadedStrings
   , FlexibleContexts
+  , DeriveDataTypeable
+  , TemplateHaskell
+  , GeneralizedNewtypeDeriving
   #-}
 
 module Cabal.Distros where
@@ -17,13 +20,15 @@ import Network.HTTP.Client
 import Data.HashMap.Strict as HM hiding (map, foldr, filter)
 import Data.Char (isDigit)
 import Data.Maybe (fromJust)
+import Data.SafeCopy hiding (Version)
+import Data.Data
+import Data.Hashable
 import Control.Monad.Catch
 import Control.Monad.Reader
 
 import GHC.Generics
 
 
-type Distro = T.Text
 
 fetchDistros :: MonadApp m => m (HashMap PackageName (HashMap Distro (Version, T.Text)))
 fetchDistros = do
@@ -38,8 +43,8 @@ fetchDistros = do
     response <- liftIO $ httpLbs request manager
     let fromLine :: LT.Text -> (PackageName, [(Distro, (Version, T.Text))])
         fromLine s = let [n,_,v,h] = LT.words s
-                     in  ( LT.toStrict n
-                         , [ ( LT.toStrict d
+                     in  ( PackageName $ LT.toStrict n
+                         , [ ( Distro $ LT.toStrict d
                              , ( fromJust . parseVersion . T.dropEnd 1 . LT.toStrict $ v
                                , LT.toStrict h
                                )

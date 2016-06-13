@@ -25,15 +25,9 @@ import GHC.Generics
 parsePackageNV :: T.Text -> (PackageName, [Version])
 parsePackageNV s =
   let (vs,n) = T.span (\x -> isDigit x || x == '.') $ T.reverse s
-  in  ( T.dropEnd 1 $ T.reverse n
+  in  ( PackageName . T.dropEnd 1 . T.reverse $ n
       , [fromJust . parseVersion . T.reverse $ vs]
       )
-
-data DocsError
-  = DocsNoParse LBS.ByteString
-  deriving (Show, Eq, Generic)
-
-instance Exception DocsError
 
 fetchDocs :: MonadApp m => m (HashMap PackageName (Maybe Version))
 fetchDocs = do

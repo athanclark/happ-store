@@ -6,6 +6,7 @@
 
 module Cabal.Preferred where
 
+import Cabal.Types
 import Imports
 
 import Data.Attoparsec.Text.Lazy as A
@@ -22,33 +23,6 @@ import Control.Monad.Catch
 import Control.Monad.IO.Class
 import Control.Monad.Reader
 import GHC.Generics
-
-
-data Greater
-  = GreaterThan
-  | GreaterThanEq
-  deriving (Show, Eq)
-
-data EqVersion
-  = Cons Int EqVersion
-  | Wildcard
-  | Nil
-  deriving (Show, Eq)
-
-data Constraint
-  = EqualTo EqVersion
-  | Between { lowerB  :: Greater
-            , lowerBV :: [Int]
-            , upperBV :: [Int]
-            }
-  | Above   { lowerA  :: Greater
-            , lowerAV :: [Int]
-            }
-  | Below [Int]
-  deriving (Show, Eq)
-
--- a list of ||
-type Preferred = [Constraint]
 
 
 satisfies :: [Int] -> Preferred -> Bool
@@ -174,14 +148,6 @@ parsePreferred =
     parseOr = A.string "||" <?> "Or"
 
 
-type PackageName = T.Text
-
-data PreferredError
-  = ParseError String
-  deriving (Eq, Show, Generic)
-
-instance Exception PreferredError
-
 
 fetchPreferred :: MonadApp m => m (HashMap PackageName Preferred)
 fetchPreferred = do
@@ -198,6 +164,8 @@ fetchPreferred = do
       nameAndPrefs l = do
         let (n,p) = LT.span (not . startingPref) l
         p' <- parsePref $ LT.strip p
-        pure (T.strip $ LT.toStrict n, p')
+        pure ( PackageName . T.strip . LT.toStrict $ n
+             , p'
+             )
   ys <- mapM nameAndPrefs xs
   pure $ HM.fromList ys

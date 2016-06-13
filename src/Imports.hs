@@ -4,6 +4,7 @@ module Imports
 
 
 import Application.Types  as X
+import Server.Types       as X
 
 import Network.Wai.Trans  as X
 import Network.HTTP.Types as X

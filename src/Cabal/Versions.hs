@@ -22,33 +22,8 @@ import GHC.Generics
 
 
 
-data Versions = Versions
-  { normal      :: [Version]
-  , deprecated  :: [Version]
-  , unpreferred :: [Version]
-  } deriving (Show, Eq)
-
-instance FromJSON Versions where
-  parseJSON (Object o) = do
-    mn <- o .:? "normal-version"
-    md <- o .:? "deprecated-version"
-    mu <- o .:? "unpreferred-version"
-    pure Versions
-           { normal      = fromMaybe [] mn
-           , deprecated  = fromMaybe [] md
-           , unpreferred = fromMaybe [] mu
-           }
-  parseJSON _ = fail "Not an object"
-
-
-data VersionsError
-  = VersionsNoParse String LBS.ByteString
-  deriving (Show, Eq, Generic)
-
-instance Exception VersionsError
-
 fetchVersions :: MonadApp m => PackageName -> m Versions
-fetchVersions package = do
+fetchVersions (PackageName package) = do
   manager  <- envManager <$> ask
   request  <- parseUrl $ "https://hackage.haskell.org/package/"
                       ++ T.unpack package ++ "/preferred"

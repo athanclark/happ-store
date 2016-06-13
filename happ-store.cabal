@@ -18,13 +18,13 @@ Library
                         Application
                         Application.Types
                         Cabal
+                        Cabal.Types
                         Cabal.Preferred
                         Cabal.Deprecated
                         Cabal.Docs
                         Cabal.Distros
                         Cabal.Uploaded
                         Cabal.Versions
-                        Cabal.Types
                         Pages.Home
                         Pages.NotFound
                         Handlers
@@ -38,6 +38,7 @@ Library
                         Routes
                         Templates.Master
                         Schema
+                        Schema.Types
                         Session
                         Imports
   Build-Depends:        base >= 4.8 && < 5
@@ -69,7 +70,7 @@ Library
                       , path-extra >= 0.0.3
                       , regex-compat
                       , resourcet
-                      , rose-trees >= 0.0.4.1
+                      , rose-trees >= 0.0.4.3
                       , safecopy
                       , saltine
                       , split
@@ -95,9 +96,12 @@ Executable happ-store
   GHC-Options:          -Wall -with-rtsopts=-T
   Main-Is:              Main.hs
   Other-Modules:        Main.Options
+                        Server
+                        Server.Types
                         Application
                         Application.Types
                         Cabal
+                        Cabal.Types
                         Pages.Home
                         Pages.NotFound
                         Handlers
@@ -111,6 +115,7 @@ Executable happ-store
                         Routes
                         Templates.Master
                         Schema
+                        Schema.Types
                         Session
                         Imports
   Build-Depends:        base >= 4.8 && < 5
@@ -144,6 +149,7 @@ Executable happ-store
                       , path-extra
                       , regex-compat
                       , resourcet
+                      , rose-trees
                       , safecopy
                       , saltine
                       , split

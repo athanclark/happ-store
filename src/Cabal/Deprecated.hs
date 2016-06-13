@@ -22,24 +22,6 @@ import Control.Arrow
 import GHC.Generics
 
 
-data DeprecatedPackage = DeprecatedPackage
-  { packageName  :: PackageName
-  , replacements :: [PackageName]
-  } deriving (Show, Eq)
-
-instance FromJSON DeprecatedPackage where
-  parseJSON (Object o) =
-    DeprecatedPackage <$> o .: "deprecated-package"
-                      <*> o .: "in-favour-of"
-  parseJSON _ = fail "Not an object"
-
-
-data DeprecatedError
-  = DeprecatedNoParse LBS.ByteString
-  deriving (Show, Eq, Generic)
-
-instance Exception DeprecatedError
-
 fetchDeprecated :: MonadApp m => m (HashMap PackageName [PackageName])
 fetchDeprecated = do
   manager  <- envManager <$> ask

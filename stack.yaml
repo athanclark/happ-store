@@ -39,6 +39,7 @@ resolver: nightly-2016-05-20
 # will not be run. This is useful for tweaking upstream packages.
 packages:
   - '.'
+  - '../rose-trees'
     # - '../nested-routes'
     # - '../timemap'
     # - '../wai-transformers'
@@ -76,7 +77,7 @@ extra-deps:
   - monads-tf-0.1.0.3
   - wai-transformers-0.0.5
   - wai-middleware-verbs-0.3.0
-  - rose-trees-0.0.4.1
+  - rose-trees-0.0.4.3
   - timemap-0.0.4
   - nested-routes-7.1.1
 
