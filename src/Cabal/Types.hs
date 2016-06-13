@@ -12,15 +12,15 @@ module Cabal.Types where
 import Schema.Types
 
 import Data.Aeson
-import qualified Data.Text as T
 import Text.Read (readMaybe)
 import Data.Hashable
-import Data.Attoparsec.Text as A
-import qualified Data.Set     as Set
-import Data.Tree.Set          as STr
-import qualified Data.Version as V
-import qualified Data.HashSet as HS
-import qualified Data.HashMap.Strict as HM
+import qualified Data.Text            as T
+import Data.Attoparsec.Text           as A
+import qualified Data.Set             as Set
+import Data.Tree.Set                  as STr
+import qualified Data.Version         as V
+import qualified Data.HashSet         as HS
+import qualified Data.HashMap.Strict  as HMS
 import qualified Data.ByteString.Lazy as LBS
 import Data.List (intercalate)
 import Data.Maybe (fromMaybe)
@@ -240,9 +240,35 @@ instance Indexable Package where
     , ixFun $ \p -> [maintainer p]
     , ixFun $ \p -> [license p]
     , ixFun $ \p -> HS.toList . getStorableHashSet . categories $ p
-    , ixFun $ \p -> HM.keys   . getSSHashMap    . distributions $ p
+    , ixFun $ \p -> HMS.keys  . getSSHashMap    . distributions $ p
     ]
 
+
+-- * Fetched
+
+data BatchFetched = BatchFetched
+  { fetchedDeprecated :: HMS.HashMap PackageName [PackageName] -- TODO: acyclic graph?
+  , fetchedDistros    :: HMS.HashMap PackageName (HMS.HashMap Distro (Version, T.Text))
+  , fetchedDocs       :: HMS.HashMap PackageName Version
+  } deriving (Show, Eq)
+
+
+data SpecificFetched = SpecificFetched
+  { fetchedUploadTime :: HMS.HashMap PackageName UTCTime -- latest only
+  , fetchedVersions   :: HMS.HashMap PackageName Versions
+  } deriving (Show, Eq)
+
+
+data Fetched = Fetched
+  { batch    :: BatchFetched
+  , specific :: SpecificFetched
+  } deriving (Show, Eq)
+
+emptyFetched :: Fetched
+emptyFetched = Fetched
+  { batch    = BatchFetched HMS.empty HMS.empty HMS.empty
+  , specific = SpecificFetched HMS.empty HMS.empty
+  }
 
 
 

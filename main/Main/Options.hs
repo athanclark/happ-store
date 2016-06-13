@@ -4,6 +4,7 @@
 
 module Main.Options where
 
+import Cabal.Types
 import Application.Types
 import Schema
 
@@ -23,10 +24,12 @@ import Data.Monoid
 import Data.Acid
 import Data.Acid.Memory (openMemoryState)
 import Data.Acid.Local (createCheckpointAndClose)
+import Data.STRef
 
 import GHC.Generics
 import Data.Maybe
 import Control.Monad
+import Control.Monad.ST
 import Control.Concurrent.STM (atomically)
 import Control.Exception (bracket)
 
@@ -192,6 +195,7 @@ appOptsToEnv (AppOpts (Just p)
                      (openLocalState initDB)
                      createCheckpointAndClose pure
              else openMemoryState initDB
+  f       <- stToIO $ newSTRef emptyFetched
   let auth = UrlAuthority "http" True Nothing h $ p <$ guard (p /= 80)
   pure Env { envAuthority  = auth
            , envCwd        = c
@@ -202,5 +206,6 @@ appOptsToEnv (AppOpts (Just p)
            , envSecretKey  = sk
            , envManager    = m
            , envDatabase   = db
+           , envFetched    = f
            }
 appOptsToEnv os = error $ "AppOpts improperly formatted: " ++ show os

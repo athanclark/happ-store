@@ -76,16 +76,12 @@ addCabalDesc xs package =
 -- TODO: use /packages/ to know the full set of packages available
 
 
-data BatchFetched = BatchFetched
-  { fetchedDeprecated :: HMS.HashMap PackageName [PackageName]
-  , fetchedDistros    :: HMS.HashMap PackageName (HMS.HashMap Distro (Version, T.Text))
-  , fetchedDocs       :: HMS.HashMap PackageName Version
-  } deriving (Show, Eq)
-
-data SpecificFetched = SpecificFetched
-  { fetchedUploadTime :: HMS.HashMap PackageName UTCTime -- latest only
-  , fetchedVersions   :: HMS.HashMap PackageName Versions
-  } deriving (Show, Eq)
+fetchBatch :: MonadApp m => m BatchFetched
+fetchBatch = do
+  depr <- fetchDeprecated
+  dist <- fetchDistros
+  docs <- fetchDocs
+  return $ BatchFetched depr dist docs
 
 updateSpecific :: MonadApp m => PackageName -> SpecificFetched -> m SpecificFetched
 updateSpecific p xs = do
@@ -108,3 +104,6 @@ updateSpecific p xs = do
             Just ut -> xs { fetchedVersions   = HMS.insert p vs (fetchedVersions xs)
                           , fetchedUploadTime = HMS.insert p ut (fetchedUploadTime xs)
                           }
+
+
+-- updateFetched :: MonadApp m => m ()
