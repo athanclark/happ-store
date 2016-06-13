@@ -11,22 +11,14 @@ module Cabal.Distros where
 import Cabal.Types
 import Imports hiding (requestHeaders)
 
-import Data.Aeson
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as LT
 import qualified Data.Text.Lazy.Encoding as LT
-import qualified Data.ByteString.Lazy as LBS
 import Network.HTTP.Client
 import Data.HashMap.Strict as HM hiding (map, foldr, filter)
-import Data.Char (isDigit)
 import Data.Maybe (fromJust)
-import Data.SafeCopy hiding (Version)
-import Data.Data
-import Data.Hashable
-import Control.Monad.Catch
 import Control.Monad.Reader
 
-import GHC.Generics
 
 
 

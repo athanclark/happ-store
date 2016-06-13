@@ -18,28 +18,17 @@ import Cabal.Versions
 import Schema.Types
 import Imports hiding (responseStatus, author)
 
-import           Distribution.PackageDescription ( GenericPackageDescription
-                                                 , SourceRepo
-                                                 , RepoType
-                                                 , RepoKind
-                                                 )
+import           Distribution.PackageDescription (GenericPackageDescription)
 import qualified Distribution.PackageDescription as C
 import           Distribution.PackageDescription.Parse
-import           Distribution.License
-import           Distribution.Package hiding (Package, PackageName, Version)
+import           Distribution.Package hiding (Package, PackageName)
 
 import Network.HTTP.Client
 
 import qualified Data.Text as T
 import qualified Data.ByteString.Lazy.UTF8 as LBSU8
 import Data.List (intercalate)
-import Data.Time
-import Data.Data
-import Data.SafeCopy hiding (Version)
-import Data.IxSet
-import Data.Hashable
 import qualified Data.HashSet as HS
-import qualified Data.HashMap.Strict as HM
 import Control.Monad.Reader
 
 

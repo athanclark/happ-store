@@ -11,7 +11,6 @@ module Server.Types where
 import Schema.Types
 import Cabal.Types
 
-import Data.Acid
 import Data.SafeCopy
 import Data.Data
 import Data.IxSet

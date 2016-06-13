@@ -8,26 +8,17 @@ module Session where
 import Imports
 
 import Control.Applicative
-import Control.Error
-import Control.Concurrent.STM (atomically)
-import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Catch
 import Control.Monad.Reader
 import Data.TimeMap as TM
-import Data.Monoid
 
-import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import Data.Aeson as A hiding (json)
 import qualified Crypto.Saltine.Core.Sign as NaCl
-import Crypto.Saltine.Class     as NaCl
 import qualified Data.ByteString        as BS
 import qualified Data.ByteString.Lazy   as LBS
 import qualified Data.ByteString.Base16 as BS16
-import Data.ByteArray (convert)
-import Data.Time (getCurrentTime)
 
-import Debug.Trace
 
 
 -- * Signatures

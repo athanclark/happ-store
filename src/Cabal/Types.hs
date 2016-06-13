@@ -34,8 +34,7 @@ import Control.Monad.Catch
 import GHC.Generics
 
 import Distribution.License
-import Distribution.PackageDescription ( GenericPackageDescription
-                                       , SourceRepo (..)
+import Distribution.PackageDescription ( SourceRepo (..)
                                        , RepoType
                                        , RepoKind
                                        )

@@ -13,13 +13,11 @@ import Handlers.App
 import Session
 import Imports
 
-import Network.HTTP.Types
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as LT
 import Data.Aeson as A hiding (json)
 
 import Data.Monoid
-import Data.TimeMap as TM
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Catch
 

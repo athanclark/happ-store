@@ -27,8 +27,6 @@ import Data.Url
 import Data.TimeMap as TM
 import Data.Hashable
 import Data.Data
-import Data.SafeCopy
-import Control.Monad (fail)
 import Control.Monad.Logger
 import Control.Monad.Trans.Control
 import Control.Monad.Reader
@@ -38,7 +36,6 @@ import Crypto.Saltine.Core.Sign as NaCl
 import Crypto.Saltine.Class     as NaCl
 
 import GHC.Generics
-import Data.Typeable
 
 
 -- * Global Variables

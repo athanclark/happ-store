@@ -11,15 +11,13 @@ import Imports hiding (requestHeaders)
 
 import Data.Aeson
 import qualified Data.Text as T
-import qualified Data.ByteString.Lazy as LBS
 import Network.HTTP.Client
 import Data.HashMap.Strict as HM hiding (map, foldr, filter, null)
 import Data.Char (isDigit)
-import Data.Maybe (listToMaybe, fromJust)
+import Data.Maybe (fromJust)
 import Control.Monad.Catch
 import Control.Monad.Reader
 
-import GHC.Generics
 
 
 parsePackageNV :: T.Text -> (PackageName, [Version])

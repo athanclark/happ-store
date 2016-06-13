@@ -16,13 +16,11 @@ import qualified Data.Text.Lazy.Encoding as LT
 import Network.HTTP.Client
 
 import Data.Foldable
-import Data.Char (digitToInt)
 import Data.HashMap.Lazy as HM hiding (empty)
 import Control.Applicative
 import Control.Monad.Catch
 import Control.Monad.IO.Class
 import Control.Monad.Reader
-import GHC.Generics
 
 
 satisfies :: [Int] -> Preferred -> Bool

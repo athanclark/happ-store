@@ -15,20 +15,13 @@ import Handlers.App
 
 import Imports
 
-import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Catch
 import Control.Monad.Reader
 import Control.Applicative
-import Control.Monad
-import Control.Concurrent.STM (atomically)
-import Data.Monoid
 
 import Data.Aeson as A hiding (json)
 import Data.TimeMap as TM
 import qualified Data.Text as T
-import qualified Data.ByteString        as BS
-import qualified Data.ByteString.Lazy   as BSL
-import Data.ByteArray (convert)
 
 
 

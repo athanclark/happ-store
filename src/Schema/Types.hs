@@ -9,19 +9,12 @@ module Schema.Types where
 
 {-| Globally recognized storable data -}
 
-import qualified Data.Text as T
-
-import Data.Maybe (fromMaybe)
-import Data.Foldable (fold)
 import Data.SafeCopy
-import Data.IxSet
 import qualified Data.HashMap.Strict as HMS
 import qualified Data.HashMap.Lazy   as HML
 import qualified Data.HashSet        as HS
 import Data.Hashable                 (Hashable)
-
 import Data.Data
-import GHC.Generics
 
 
 newtype StorableStrictHashMap k a = StorableStrictHashMap

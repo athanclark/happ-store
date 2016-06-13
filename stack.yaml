@@ -39,7 +39,7 @@ resolver: nightly-2016-05-20
 # will not be run. This is useful for tweaking upstream packages.
 packages:
   - '.'
-  - '../rose-trees'
+    # - '../rose-trees'
     # - '../nested-routes'
     # - '../timemap'
     # - '../wai-transformers'
