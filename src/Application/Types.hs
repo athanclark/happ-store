@@ -27,7 +27,6 @@ import Data.Hashable
 import Data.Data
 import Data.Acid
 import Data.Acid.Memory
-import Data.Acid.Local (createCheckpointAndClose)
 import Control.Monad.Logger
 import Control.Monad.Trans.Control
 import Control.Monad.Reader
@@ -101,8 +100,7 @@ emptyEnv = do
   t       <- atomically TM.newTimeMap
   (sk,pk) <- NaCl.newKeypair
   m       <- newManager tlsManagerSettings
-  db      <- bracket (openMemoryState initDB)
-                     createCheckpointAndClose pure
+  db      <- openMemoryState initDB
   let auth = UrlAuthority "http" True Nothing "localhost" Nothing
   pure Env { envAuthority  = auth
            , envCwd        = "/"
