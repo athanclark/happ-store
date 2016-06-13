@@ -21,6 +21,7 @@ import Data.TimeMap as TM
 import Data.Url
 import Data.Monoid
 import Data.Acid
+import Data.Acid.Memory (openMemoryState)
 import Data.Acid.Local (createCheckpointAndClose)
 
 import GHC.Generics
@@ -186,8 +187,11 @@ appOptsToEnv (AppOpts (Just p)
   t       <- atomically TM.newTimeMap
   (sk,pk) <- NaCl.newKeypair
   m       <- newManager tlsManagerSettings
-  db      <- bracket (openLocalState initDB)
+  db      <- if pr
+             then bracket
+                     (openLocalState initDB)
                      createCheckpointAndClose pure
+             else openMemoryState initDB
   let auth = UrlAuthority "http" True Nothing h $ p <$ guard (p /= 80)
   pure Env { envAuthority  = auth
            , envCwd        = c
