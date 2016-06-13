@@ -35,6 +35,7 @@ import Control.Monad.Reader
 import Control.Monad.Catch
 import Control.Monad.ST
 import Control.Concurrent.STM (atomically)
+import Control.Concurrent.QSem
 import Crypto.Saltine.Core.Sign as NaCl
 import Crypto.Saltine.Class     as NaCl
 
@@ -80,10 +81,11 @@ data Env = Env
   , envManager    :: Manager
   , envDatabase   :: AcidState Database
   , envFetched    :: STRef RealWorld Fetched
+  , envQueue      :: QSem
   }
 
 instance Show Env where
-  show (Env a c s p _ _ _ _ _ _) =
+  show (Env a c s p _ _ _ _ _ _ _) =
     "Env {envAuthority = " ++ show a ++ ", envCwd = "
                            ++ show c ++ ", envStatic = "
                            ++ show s ++ ", envProduction = "
@@ -92,10 +94,11 @@ instance Show Env where
                                          \ envSecretKey = <#>,\
                                          \ envManager = <manager>,\
                                          \ envDatabase = <database>,\
-                                         \ envFetched = <fetched>}"
+                                         \ envFetched = <fetched>,\
+                                         \ envQueue = <queue>}"
 
 instance Eq Env where
-  (Env a1 c1 s1 p1 _ _ _ _ _ _) == (Env a2 c2 s2 p2 _ _ _ _ _ _) =
+  (Env a1 c1 s1 p1 _ _ _ _ _ _ _) == (Env a2 c2 s2 p2 _ _ _ _ _ _ _) =
     a1 == a2 && c1 == c2 && s1 == s2 && p1 == p2
 
 -- | A really terrible environment value that should only be used with testing
@@ -106,6 +109,7 @@ emptyEnv = do
   m       <- newManager tlsManagerSettings
   db      <- openMemoryState initDB
   f       <- stToIO $ newSTRef emptyFetched
+  q       <- newQSem 100
   let auth = UrlAuthority "http" True Nothing "localhost" Nothing
   pure Env { envAuthority  = auth
            , envCwd        = "/"
@@ -117,6 +121,7 @@ emptyEnv = do
            , envManager    = m
            , envDatabase   = db
            , envFetched    = f
+           , envQueue      = q
            }
 
 

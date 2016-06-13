@@ -35,9 +35,10 @@ currentKnownPackages :: Query Database (StorableHashSet PackageName)
 currentKnownPackages =
   knownPackages <$> ask
 
-updateKnownPackages :: StorableHashSet PackageName -> Update Database ()
-updateKnownPackages ps =
-  modify (\db -> db { knownPackages = ps })
+addKnownPackage :: PackageName -> Update Database ()
+addKnownPackage p =
+  modify (\db -> db { knownPackages = StorableHashSet . HS.insert p
+                                    . getStorableHashSet . knownPackages $ db })
 
 lookupPackage :: PackageName -> Query Database (Maybe Package)
 lookupPackage package = do
@@ -51,7 +52,7 @@ insertPackage package =
 
 $(makeAcidic ''Database
     [ 'currentKnownPackages
-    , 'updateKnownPackages
+    , 'addKnownPackage
     , 'lookupPackage
     , 'insertPackage
     ])

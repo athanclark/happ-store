@@ -35,10 +35,12 @@ import Data.Maybe (fromMaybe)
 import Data.Time
 import Data.STRef
 import Data.Acid.Advanced (query', update')
+import Control.Monad.Catch (bracket_)
 import Control.Monad.Reader
 import Control.Monad.ST
+import Control.Concurrent.Async (mapConcurrently)
+import Control.Concurrent.QSem
 
-import Debug.Trace
 
 
 -- | Given a package name and version, try and fetch the cabal description
@@ -72,9 +74,9 @@ fetchAllPackages env = do
   request  <- parseUrl "https://hackage.haskell.org/packages/"
   let req = request { requestHeaders = [("Accept", "application/json")] }
   response <- httpLbs req manager
-  pure $ case eitherDecode . responseBody $ response of
-           Left e -> traceShow e []
-           Right xs -> getPackageListing <$> xs
+  pure $ case decode . responseBody $ response of
+           Nothing -> []
+           Just xs -> getPackageListing <$> xs
 
 
 
@@ -91,7 +93,7 @@ fetchBatch env = do
 
 updateSpecific :: Env -> PackageName -> SpecificFetched -> IO SpecificFetched
 updateSpecific env p xs = do
-  putStrLn $ "Fetching data for package " ++ show p
+  -- putStrLn $ "Fetching data for package " ++ show (getPackageName p)
   mvs <- fetchVersions env p
   case mvs of
     Nothing -> pure xs -- package doesn't exist
@@ -126,7 +128,8 @@ updateFetchedShallow env = do
   allPackages <- HS.fromList <$> fetchAllPackages env
   let diffPackages = allPackages `HS.difference` knownPackages
   when (diffPackages /= HS.empty) $
-    let go p = do
+    let go p = bracket_ (waitQSem $ envQueue env) (signalQSem $ envQueue env) $ do
+          update' db (AddKnownPackage p)
           sp <- specific <$> stToIO (readSTRef fetchedRef)
           sp' <- updateSpecific env p sp
           let newFetched = fetched { specific = sp' }
@@ -134,8 +137,10 @@ updateFetchedShallow env = do
           mPackage <- makePackage env p
           case mPackage of
             Nothing -> pure ()
-            Just package -> update' (envDatabase env) (InsertPackage package)
-    in mapM_ go diffPackages
+            Just package -> update' db (InsertPackage package)
+    in do putStrLn $ "Fetching " ++ show (length diffPackages) ++ " packages... "
+          mapConcurrently go $ HS.toList diffPackages
+          putStrLn "Done."
 
 
 -- | Disregard batch jobs, and spam hackage with version requests :\

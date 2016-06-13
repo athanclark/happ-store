@@ -21,9 +21,14 @@ import Crypto.Saltine as NaCL
 
 import Data.Url
 import Data.Monoid
+import Data.Acid
+import Data.Acid.Memory (openMemoryState)
+import Data.Acid.Local (createCheckpointAndClose)
+import Data.IORef
 import Control.Monad
 import Control.Concurrent.STM (atomically)
 import Control.Concurrent
+import Control.Exception
 
 
 
@@ -31,34 +36,43 @@ import Control.Concurrent
 
 main :: IO ()
 main = do
-  (env,p,m) <- getEnv
-  putStrLn $ unlines
-    [ "Cooperate  Copyright (C) 2016  Athan Clark"
-    , "This program comes with ABSOLUTELY NO WARRANTY; for details see"
-    , "Section 15 of the GNU Public License version 3, available in the LICENSE"
-    , "file in the source distribution of this codebase, or at"
-    , "<http://www.gnu.org/licenses/gpl-3.0.en.html>."
-    , ""
-    , "This is free software, and you are welcome to redistribute it"
-    , "under certain conditions; see the GNU General Public License version 3"
-    , "for details."
-    , ""
-    , "- port:       " <> show p
-    , "- monitor:    " <> show m
-    , "- hostname:   " <> showUrlAuthority (envAuthority env)
-    , "- cwd:        " <> envCwd env
-    , "- static:     " <> envStatic env
-    , "- production: " <> show (envProduction env)
-    ]
-  entry p m env
+  ekgId <- newIORef Nothing
+  (toEnv,p,m,isProd) <- getEnv
+  let killEkg = mapM_ killThread =<< readIORef ekgId
+      mkDb :: (AcidState Database -> IO ()) -> IO ()
+      mkDb | isProd    = bracket (openLocalState initDB)
+                                 (\db -> createCheckpointAndClose db >> killEkg)
+           | otherwise = bracket (openMemoryState initDB) (\_ -> killEkg)
+  mkDb $ \db -> do
+    let env = toEnv db
+    putStrLn $ unlines
+      [ "Cooperate  Copyright (C) 2016  Athan Clark"
+      , "This program comes with ABSOLUTELY NO WARRANTY; for details see"
+      , "Section 15 of the GNU Public License version 3, available in the LICENSE"
+      , "file in the source distribution of this codebase, or at"
+      , "<http://www.gnu.org/licenses/gpl-3.0.en.html>."
+      , ""
+      , "This is free software, and you are welcome to redistribute it"
+      , "under certain conditions; see the GNU General Public License version 3"
+      , "for details."
+      , ""
+      , "- port:       " <> show p
+      , "- monitor:    " <> show m
+      , "- hostname:   " <> showUrlAuthority (envAuthority env)
+      , "- cwd:        " <> envCwd env
+      , "- static:     " <> envStatic env
+      , "- production: " <> show (envProduction env)
+      ]
+    entry p m db ekgId env
 
 -- | Entry point
-entry :: Int -> Int -> Env -> IO ()
-entry p m env = do
+entry :: Int -> Int -> AcidState Database -> IORef (Maybe ThreadId) -> Env -> IO ()
+entry p m db ekgId env = do
   when (envProduction env) NaCL.optimize
 
   -- monitor
-  Monitor.forkServer "localhost" m
+  ekg <- Monitor.forkServer "localhost" m
+  writeIORef ekgId . Just . serverThreadId $ ekg
 
   let secondPico = 1000000
       secondDiff = 1

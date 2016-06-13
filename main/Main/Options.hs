@@ -22,8 +22,6 @@ import Data.TimeMap as TM
 import Data.Url
 import Data.Monoid
 import Data.Acid
-import Data.Acid.Memory (openMemoryState)
-import Data.Acid.Local (createCheckpointAndClose)
 import Data.STRef
 
 import GHC.Generics
@@ -31,6 +29,7 @@ import Data.Maybe
 import Control.Monad
 import Control.Monad.ST
 import Control.Concurrent.STM (atomically)
+import Control.Concurrent.QSem
 import Control.Exception (bracket)
 
 
@@ -127,7 +126,7 @@ app = App
        <> help "absolute path to config file - DEF: `pwd`/config/app.yaml" ))
 
 
-getEnv :: IO (Env, Int, Int)
+getEnv :: IO (AcidState Database -> Env, Int, Int, Bool)
 getEnv = do
   let opts :: ParserInfo App
       opts = info (helper <*> app)
@@ -173,6 +172,7 @@ getEnv = do
                     pure ( env
                          , fromJust $ port config
                          , fromJust $ monitor config
+                         , fromJust $ production config
                          )
 
 
@@ -180,7 +180,7 @@ getEnv = do
 
 -- | Note that this function will fail to pattern match on @Nothing@'s - use
 -- @def@ beforehand.
-appOptsToEnv :: AppOpts -> IO Env
+appOptsToEnv :: AppOpts -> IO (AcidState Database -> Env)
 appOptsToEnv (AppOpts (Just p)
                       _
                       (Just h)
@@ -190,22 +190,20 @@ appOptsToEnv (AppOpts (Just p)
   t       <- atomically TM.newTimeMap
   (sk,pk) <- NaCl.newKeypair
   m       <- newManager tlsManagerSettings
-  db      <- if pr
-             then bracket
-                    (openLocalState initDB)
-                    createCheckpointAndClose pure
-             else openMemoryState initDB
   f       <- stToIO $ newSTRef emptyFetched
+  q       <- newQSem 100
   let auth = UrlAuthority "http" True Nothing h $ p <$ guard (p /= 80)
-  pure Env { envAuthority  = auth
-           , envCwd        = c
-           , envStatic     = s
-           , envProduction = pr
-           , envSession    = t
-           , envPublicKey  = pk
-           , envSecretKey  = sk
-           , envManager    = m
-           , envDatabase   = db
-           , envFetched    = f
-           }
+  pure $ \db -> Env
+         { envAuthority  = auth
+         , envCwd        = c
+         , envStatic     = s
+         , envProduction = pr
+         , envSession    = t
+         , envPublicKey  = pk
+         , envSecretKey  = sk
+         , envManager    = m
+         , envDatabase   = db
+         , envFetched    = f
+         , envQueue      = q
+         }
 appOptsToEnv os = error $ "AppOpts improperly formatted: " ++ show os
