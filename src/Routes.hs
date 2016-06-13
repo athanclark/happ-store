@@ -17,10 +17,10 @@ routes :: ( MonadApp m
           ) => HandlerT (MiddlewareT m) sec m ()
 routes = do
   matchHere (action homeHandle)
-  matchGroup (l_ "browse" </> o_) $ do
+  matchGroup (l_ "packages" </> o_) $ do
     matchHere (action homeHandle)
-    match (l_ "view" </> wordChunk </> o_)
-      browseViewHandle
+    match (wordChunk </> o_)
+      packagesHandle
     match (l_ "search" </> wordChunk </> o_)
       browseSearchHandle
   matchGroup (l_ "people" </> o_) $ do

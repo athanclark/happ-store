@@ -19,17 +19,17 @@ import Control.Monad.Reader
 
 
 
-fetchDistros :: MonadApp m => m (HashMap PackageName (HashMap Distro (Version, T.Text)))
-fetchDistros = do
-  manager  <- envManager <$> ask
+fetchDistros :: Env -> IO (HashMap PackageName (HashMap Distro (Version, T.Text)))
+fetchDistros env = do
+  let manager = envManager env
   request  <- parseUrl "https://hackage.haskell.org/distros/"
-  response <- liftIO $ httpLbs request manager
+  response <- httpLbs request manager
   let distros :: [LT.Text]
       distros = map LT.strip . LT.splitOn "," . LT.decodeUtf8 . responseBody $ response
   xs <- forM distros $ \d -> do
     request <- parseUrl $ "https://hackage.haskell.org/distro/"
                        ++ LT.unpack d ++ "/packages"
-    response <- liftIO $ httpLbs request manager
+    response <- httpLbs request manager
     let fromLine :: LT.Text -> (PackageName, [(Distro, (Version, T.Text))])
         fromLine s = let [n,_,v,h] = LT.words s
                      in  ( PackageName $ LT.toStrict n

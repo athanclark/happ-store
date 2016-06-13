@@ -17,6 +17,7 @@ import Data.Data
 import qualified Data.HashMap.Lazy as HML
 import qualified Data.HashSet      as HS
 import Control.Monad.Reader
+import Control.Monad.State
 
 
 data Database = Database
@@ -30,13 +31,29 @@ data Database = Database
 
 $(deriveSafeCopy 0 'base ''Database)
 
-currentKnwonPackages :: Query Database (StorableHashSet PackageName)
-currentKnwonPackages =
+currentKnownPackages :: Query Database (StorableHashSet PackageName)
+currentKnownPackages =
   knownPackages <$> ask
+
+updateKnownPackages :: StorableHashSet PackageName -> Update Database ()
+updateKnownPackages ps =
+  modify (\db -> db { knownPackages = ps })
+
+lookupPackage :: PackageName -> Query Database (Maybe Package)
+lookupPackage package = do
+  db <- ask
+  pure . getOne $ packages db @= package
+
+insertPackage :: Package -> Update Database ()
+insertPackage package =
+  modify (\db -> db { packages = IxSet.insert package $ packages db })
 
 
 $(makeAcidic ''Database
-    [ 'currentKnwonPackages
+    [ 'currentKnownPackages
+    , 'updateKnownPackages
+    , 'lookupPackage
+    , 'insertPackage
     ])
 
 initDB :: Database

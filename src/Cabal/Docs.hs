@@ -26,13 +26,12 @@ parsePackageNV s =
       , [fromJust . parseVersion . T.reverse $ vs]
       )
 
-fetchDocs :: MonadApp m => m (HashMap PackageName Version)
-fetchDocs = do
-  manager  <- envManager <$> ask
-  request  <- parseUrl "https://hackage.haskell.org/packages/docs"
-  let req = request
-              { requestHeaders = [("Accept","application/json")] }
-  response <- liftIO $ httpLbs req manager
+fetchDocs :: Env -> IO (HashMap PackageName Version)
+fetchDocs env = do
+  let manager = envManager env
+  request <- parseUrl "https://hackage.haskell.org/packages/docs"
+  let req = request { requestHeaders = [("Accept","application/json")] }
+  response <- httpLbs req manager
   case decode (responseBody response) of
     Nothing -> throwM . DocsNoParse . responseBody $ response
     Just xs ->

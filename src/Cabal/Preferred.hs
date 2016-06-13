@@ -146,18 +146,18 @@ parsePreferred =
 
 
 
-fetchPreferred :: MonadApp m => m (HashMap PackageName Preferred)
-fetchPreferred = do
-  manager  <- envManager <$> ask
+fetchPreferred :: Env -> IO (HashMap PackageName Preferred)
+fetchPreferred env = do
+  let manager = envManager env
   request  <- parseUrl "https://hackage.haskell.org/packages/preferred-versions"
-  response <- liftIO $ httpLbs request manager
+  response <- httpLbs request manager
   let xs = dropWhile ("--" `LT.isPrefixOf`)
          . LT.lines . LT.decodeUtf8 . responseBody $ response
       startingPref c = c == '<' || c == '>' || c == '='
       parsePref p = case A.parse parsePreferred p of
                       Done _ r -> pure r
                       e        -> throwM . ParseError . show $ e
-      nameAndPrefs :: MonadApp m => LT.Text -> m (PackageName, Preferred)
+      nameAndPrefs :: LT.Text -> IO (PackageName, Preferred)
       nameAndPrefs l = do
         let (n,p) = LT.span (not . startingPref) l
         p' <- parsePref $ LT.strip p

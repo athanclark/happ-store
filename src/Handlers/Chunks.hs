@@ -13,7 +13,7 @@ import Control.Concurrent (threadDelay)
 
 
 wordChunk :: EitherUrlChunk ('Just T.Text)
-wordChunk = p_ "word" . takeWhile1 $ const True
+wordChunk = pred_ "word" Just
 
 
 delay :: IO ()

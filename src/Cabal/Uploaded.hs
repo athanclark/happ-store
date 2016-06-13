@@ -46,12 +46,12 @@ parseUploadTime t =
                           (hour * 3600) + (min * 60) + sec
         }
 
-fetchUploadTime :: MonadApp m => PackageName -> Version -> m (Maybe UTCTime)
-fetchUploadTime (PackageName package) version = do
-  manager  <- envManager <$> ask
-  let url = "https://hackage.haskell.org/package/"
+fetchUploadTime :: Env -> PackageName -> Version -> IO (Maybe UTCTime)
+fetchUploadTime env (PackageName package) version = do
+  let manager = envManager env
+      url = "https://hackage.haskell.org/package/"
          ++ T.unpack package ++ "-" ++ show version ++ "/upload-time"
   request  <- parseUrl url
-  response <- liftIO $ httpLbs request manager
+  response <- httpLbs request manager
   let t = T.decodeUtf8 . LBS.toStrict . responseBody $ response
   pure (parseUploadTime t) `catch` (\(_ :: SomeException) -> pure Nothing)

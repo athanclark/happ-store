@@ -18,13 +18,12 @@ import Control.Arrow
 
 
 
-fetchDeprecated :: MonadApp m => m (HashMap PackageName [PackageName])
-fetchDeprecated = do
-  manager  <- envManager <$> ask
-  request  <- parseUrl "https://hackage.haskell.org/packages/deprecated"
-  let req = request
-              { requestHeaders = [("Accept","application/json")] }
-  response <- liftIO $ httpLbs req manager
+fetchDeprecated :: Env -> IO (HashMap PackageName [PackageName])
+fetchDeprecated env = do
+  let manager = envManager env
+  request <- parseUrl "https://hackage.haskell.org/packages/deprecated"
+  let req = request { requestHeaders = [("Accept","application/json")] }
+  response <- httpLbs req manager
   case decode (responseBody response) of
     Nothing -> throwM . DeprecatedNoParse . responseBody $ response
     Just xs -> pure . HM.fromList $ map (packageName &&& replacements) xs

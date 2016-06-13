@@ -45,7 +45,7 @@ import Distribution.PackageDescription ( SourceRepo (..)
 
 newtype Version = Version
   { getVersion :: [Int]
-  } deriving (Eq, Ord, Hashable, Data, Typeable)
+  } deriving (Eq, Ord, Hashable, Data, Typeable, ToJSON)
 
 $(deriveSafeCopy 0 'base ''Version)
 
@@ -79,12 +79,11 @@ newtype PackageName = PackageName
 
 $(deriveSafeCopy 0 'base ''PackageName)
 
-
 -- * Distros
 
 newtype Distro = Distro
   { getDistro :: T.Text
-  } deriving (Show, Eq, Ord, Hashable, Data, Typeable)
+  } deriving (Show, Eq, Ord, Hashable, Data, Typeable, FromJSON, ToJSON)
 
 $(deriveSafeCopy 0 'base ''Distro)
 
@@ -138,15 +137,12 @@ data Versions = Versions
   { normal      :: Set.Set Version
   , deprecated  :: Set.Set Version
   , unpreferred :: Set.Set Version
-  } deriving (Show, Eq)
+  } deriving (Show, Eq, Ord, Data, Typeable)
 
 instance Monoid Versions where
   mempty = Versions Set.empty Set.empty Set.empty
   mappend (Versions ns ds us) (Versions ns' ds' us') =
     Versions (ns <> ns') (ds <> ds') (us <> us')
-
-allVersions :: Versions -> Set.Set Version
-allVersions (Versions ns ds us) = us <> ds <> ns
 
 instance FromJSON Versions where
   parseJSON (Object o) = do
@@ -160,30 +156,43 @@ instance FromJSON Versions where
            }
   parseJSON _ = fail "Not an object"
 
+instance ToJSON Versions where
+  toJSON (Versions ns ds us) =
+    object
+      [ ("normal-version"     , toJSON $ Set.toList ns)
+      , ("deprecated-version" , toJSON $ Set.toList ds)
+      , ("unpreferred-version", toJSON $ Set.toList us)
+      ]
+
+$(deriveSafeCopy 0 'base ''Versions)
+
+allVersions :: Versions -> Set.Set Version
+allVersions (Versions ns ds us) = us <> ds <> ns
+
 
 -- * Package Data
 
 newtype Author = Author
   { getAuthor :: T.Text
-  } deriving (Show, Eq, Ord, Data, Typeable)
+  } deriving (Show, Eq, Ord, Data, Typeable, FromJSON, ToJSON)
 
 $(deriveSafeCopy 0 'base ''Author)
 
 newtype Maintainer = Maintainer
   { getMaintainer :: T.Text
-  } deriving (Show, Eq, Ord, Data, Typeable)
+  } deriving (Show, Eq, Ord, Data, Typeable, FromJSON, ToJSON)
 
 $(deriveSafeCopy 0 'base ''Maintainer)
 
 newtype Category = Category
   { getCategory :: T.Text
-  } deriving (Show, Eq, Ord, Hashable, Data, Typeable)
+  } deriving (Show, Eq, Ord, Hashable, Data, Typeable, FromJSON, ToJSON)
 
 $(deriveSafeCopy 0 'base ''Category)
 
 newtype Stability = Stability
   { getStability :: T.Text
-  } deriving (Show, Eq, Ord, Data, Typeable)
+  } deriving (Show, Eq, Ord, Data, Typeable, FromJSON, ToJSON)
 
 $(deriveSafeCopy 0 'base ''Stability)
 
@@ -191,9 +200,29 @@ $(deriveSafeCopy 0 'base ''Stability)
 deriving instance Ord SourceRepo
 deriving instance Ord License
 
+instance FromJSON SourceRepo where
+  parseJSON (String s) =
+    case readMaybe $ T.unpack s of
+      Nothing -> fail $ "Not in correct format: " ++ T.unpack s
+      Just x  -> pure x
+  parseJSON _ = fail "Not a string"
+
+instance ToJSON SourceRepo where
+  toJSON = toJSON . show
+
+instance FromJSON License where
+  parseJSON (String s) =
+    case readMaybe $ T.unpack s of
+      Nothing -> fail $ "Not in correct format: " ++ T.unpack s
+      Just x  -> pure x
+  parseJSON _ = fail "Not a string"
+
+instance ToJSON License where
+  toJSON = toJSON . show
+
 data Package = Package
   { name          :: PackageName
-  , versions      :: Set.Set (STr.SetTree Int)
+  , versions      :: Versions
   , author        :: T.Text
   , maintainer    :: T.Text
   , license       :: License
@@ -203,7 +232,7 @@ data Package = Package
   , stability     :: T.Text
   , homepage      :: Maybe T.Text
   , sourceRepos   :: [SourceRepo]
-  , isDeprecated  :: Bool
+  , isDeprecated  :: Maybe [PackageName]
   , docs          :: Maybe Version -- hackage only :\
   , distributions :: StorableStrictHashMap Distro (Version, T.Text)
   , uploadedAt    :: UTCTime
@@ -214,7 +243,10 @@ data Package = Package
            -- egad, rating reviews too?
   -- TODO: Make versions their own thing: we shouldn't have a different package
   --       concept for every version
-  } deriving (Show, Eq, Ord, Data, Typeable)
+  } deriving (Show, Eq, Ord, Generic, Data, Typeable)
+
+instance FromJSON Package
+instance ToJSON Package
 
 
 instance (SafeCopy a, Ord a) => SafeCopy (SetTree a) where

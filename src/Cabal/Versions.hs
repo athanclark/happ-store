@@ -25,12 +25,12 @@ latestVersion (Versions ns ds us) =
       then Nothing
       else Just $! Set.findMax all'
 
-fetchVersions :: MonadApp m => PackageName -> m (Maybe Versions)
-fetchVersions (PackageName package) = do
-  manager  <- envManager <$> ask
-  request  <- parseUrl $ "https://hackage.haskell.org/package/"
-                      ++ T.unpack package ++ "/preferred"
+fetchVersions :: Env -> PackageName -> IO (Maybe Versions)
+fetchVersions env (PackageName package) = do
+  let manager = envManager env
+  request <- parseUrl $ "https://hackage.haskell.org/package/"
+                     ++ T.unpack package ++ "/preferred"
   let req = request
               { requestHeaders = [("Accept","application/json")] }
-  response <- liftIO $ httpLbs req manager
+  response <- httpLbs req manager
   pure . hush . eitherDecode . responseBody $ response
