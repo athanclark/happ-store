@@ -192,8 +192,8 @@ appOptsToEnv (AppOpts (Just p)
   m       <- newManager tlsManagerSettings
   db      <- if pr
              then bracket
-                     (openLocalState initDB)
-                     createCheckpointAndClose pure
+                    (openLocalState initDB)
+                    createCheckpointAndClose pure
              else openMemoryState initDB
   f       <- stToIO $ newSTRef emptyFetched
   let auth = UrlAuthority "http" True Nothing h $ p <$ guard (p /= 80)
