@@ -26,7 +26,7 @@ parsePackageNV s =
       , [fromJust . parseVersion . T.reverse $ vs]
       )
 
-fetchDocs :: MonadApp m => m (HashMap PackageName (Maybe Version))
+fetchDocs :: MonadApp m => m (HashMap PackageName Version)
 fetchDocs = do
   manager  <- envManager <$> ask
   request  <- parseUrl "https://hackage.haskell.org/packages/docs"
@@ -36,8 +36,8 @@ fetchDocs = do
   case decode (responseBody response) of
     Nothing -> throwM . DocsNoParse . responseBody $ response
     Just xs ->
-      pure . fmap (\vs -> if null vs
-                          then Nothing
-                          else Just $ maximum vs)
+      pure . HM.mapMaybe (\vs -> if null vs
+                                 then Nothing
+                                 else Just $ maximum vs)
            . foldr (uncurry $ HM.insertWith (++)) HM.empty
            $ map (\(n,_) -> parsePackageNV n) (xs :: [(T.Text, Bool)])

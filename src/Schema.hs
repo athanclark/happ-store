@@ -14,6 +14,7 @@ import Data.IxSet as IxSet
 import Data.SafeCopy hiding (Version)
 import Data.Data
 import qualified Data.HashMap.Lazy as HML
+import qualified Data.HashSet      as HS
 
 
 data Database = Database
@@ -22,7 +23,7 @@ data Database = Database
   , packages      :: IxSet Package
   , users         :: IxSet User
   , reviews       :: StorableLazyHashMap ReviewId Review
-  , knownPackages :: [PackageName]
+  , knownPackages :: StorableHashSet PackageName
   } deriving (Data, Typeable)
 
 $(deriveSafeCopy 0 'base ''Database)
@@ -36,5 +37,5 @@ initDB = Database
   , packages      = IxSet.empty
   , users         = IxSet.empty
   , reviews       = StorableLazyHashMap HML.empty
-  , knownPackages = []
+  , knownPackages = StorableHashSet     HS.empty
   }

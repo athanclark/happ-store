@@ -24,6 +24,7 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.ByteString.Lazy as LBS
 import Data.List (intercalate)
 import Data.Maybe (fromMaybe)
+import Data.Monoid
 import Data.Time
 import Data.Data
 import Data.IxSet
@@ -134,10 +135,18 @@ type Preferred = [Constraint]
 -- * Version Fetching
 
 data Versions = Versions
-  { normal      :: [Version]
-  , deprecated  :: [Version]
-  , unpreferred :: [Version]
+  { normal      :: Set.Set Version
+  , deprecated  :: Set.Set Version
+  , unpreferred :: Set.Set Version
   } deriving (Show, Eq)
+
+instance Monoid Versions where
+  mempty = Versions Set.empty Set.empty Set.empty
+  mappend (Versions ns ds us) (Versions ns' ds' us') =
+    Versions (ns <> ns') (ds <> ds') (us <> us')
+
+allVersions :: Versions -> Set.Set Version
+allVersions (Versions ns ds us) = us <> ds <> ns
 
 instance FromJSON Versions where
   parseJSON (Object o) = do
@@ -145,9 +154,9 @@ instance FromJSON Versions where
     md <- o .:? "deprecated-version"
     mu <- o .:? "unpreferred-version"
     pure Versions
-           { normal      = fromMaybe [] mn
-           , deprecated  = fromMaybe [] md
-           , unpreferred = fromMaybe [] mu
+           { normal      = Set.fromList $ fromMaybe [] mn
+           , deprecated  = Set.fromList $ fromMaybe [] md
+           , unpreferred = Set.fromList $ fromMaybe [] mu
            }
   parseJSON _ = fail "Not an object"
 

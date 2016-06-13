@@ -77,6 +77,7 @@ data Env = Env
   , envSecretKey  :: SecretKey
   , envManager    :: Manager
   , envDatabase   :: AcidState Database
+  -- , envFetched :: STRef Fetched
   }
 
 instance Show Env where
