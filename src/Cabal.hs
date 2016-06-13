@@ -1,10 +1,6 @@
 {-# LANGUAGE
     FlexibleContexts
   , OverloadedStrings
-  , TemplateHaskell
-  , DeriveDataTypeable
-  , GeneralizedNewtypeDeriving
-  , StandaloneDeriving
   #-}
 
 module Cabal where

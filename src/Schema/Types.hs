@@ -1,7 +1,5 @@
 {-# LANGUAGE
     DeriveDataTypeable
-  , DeriveGeneric
-  , TemplateHaskell
   , GeneralizedNewtypeDeriving
   #-}
 

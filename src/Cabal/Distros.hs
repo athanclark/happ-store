@@ -1,9 +1,6 @@
 {-# LANGUAGE
     OverloadedStrings
   , FlexibleContexts
-  , DeriveDataTypeable
-  , TemplateHaskell
-  , GeneralizedNewtypeDeriving
   #-}
 
 module Cabal.Distros where

@@ -4,9 +4,7 @@
   , FlexibleContexts
   , MultiParamTypeClasses
   , DeriveGeneric
-  , DeriveDataTypeable
   , GeneralizedNewtypeDeriving
-  , TemplateHaskell
   #-}
 
 module Application.Types where
