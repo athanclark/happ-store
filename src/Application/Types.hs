@@ -25,6 +25,9 @@ import Data.Url
 import Data.TimeMap as TM
 import Data.Hashable
 import Data.Data
+import Data.Acid
+import Data.Acid.Memory
+import Data.Acid.Local (createCheckpointAndClose)
 import Control.Monad.Logger
 import Control.Monad.Trans.Control
 import Control.Monad.Reader
@@ -73,20 +76,22 @@ data Env = Env
   , envPublicKey  :: PublicKey
   , envSecretKey  :: SecretKey
   , envManager    :: Manager
+  , envDatabase   :: AcidState Database
   }
 
 instance Show Env where
-  show (Env a c s p _ _ _ _) =
+  show (Env a c s p _ _ _ _ _) =
     "Env {envAuthority = " ++ show a ++ ", envCwd = "
                            ++ show c ++ ", envStatic = "
                            ++ show s ++ ", envProduction = "
                            ++ show p ++ ", envSession = <session>},\
                                          \ envPublicKey = <#>,\
                                          \ envSecretKey = <#>,\
-                                         \ envManager = <manager>"
+                                         \ envManager = <manager>,\
+                                         \ envDatabase = <database>}"
 
 instance Eq Env where
-  (Env a1 c1 s1 p1 _ _ _ _) == (Env a2 c2 s2 p2 _ _ _ _) =
+  (Env a1 c1 s1 p1 _ _ _ _ _) == (Env a2 c2 s2 p2 _ _ _ _ _) =
     a1 == a2 && c1 == c2 && s1 == s2 && p1 == p2
 
 -- | A really terrible environment value that should only be used with testing
@@ -95,6 +100,8 @@ emptyEnv = do
   t       <- atomically TM.newTimeMap
   (sk,pk) <- NaCl.newKeypair
   m       <- newManager tlsManagerSettings
+  db      <- bracket (openMemoryState initDB)
+                     createCheckpointAndClose pure
   let auth = UrlAuthority "http" True Nothing "localhost" Nothing
   pure Env { envAuthority  = auth
            , envCwd        = "/"
@@ -104,6 +111,7 @@ emptyEnv = do
            , envPublicKey  = pk
            , envSecretKey  = sk
            , envManager    = m
+           , envDatabase   = db
            }
 
 

@@ -5,6 +5,7 @@
 module Main.Options where
 
 import Application.Types
+import Schema
 
 import           Options.Applicative
 import qualified Data.Yaml as Y
@@ -19,11 +20,14 @@ import Network.HTTP.Client.TLS (tlsManagerSettings)
 import Data.TimeMap as TM
 import Data.Url
 import Data.Monoid
+import Data.Acid
+import Data.Acid.Local (createCheckpointAndClose)
 
 import GHC.Generics
 import Data.Maybe
 import Control.Monad
 import Control.Concurrent.STM (atomically)
+import Control.Exception (bracket)
 
 
 -- * Options Parsing
@@ -182,6 +186,8 @@ appOptsToEnv (AppOpts (Just p)
   t       <- atomically TM.newTimeMap
   (sk,pk) <- NaCl.newKeypair
   m       <- newManager tlsManagerSettings
+  db      <- bracket (openLocalState initDB)
+                     createCheckpointAndClose pure
   let auth = UrlAuthority "http" True Nothing h $ p <$ guard (p /= 80)
   pure Env { envAuthority  = auth
            , envCwd        = c
@@ -191,5 +197,6 @@ appOptsToEnv (AppOpts (Just p)
            , envPublicKey  = pk
            , envSecretKey  = sk
            , envManager    = m
+           , envDatabase   = db
            }
 appOptsToEnv os = error $ "AppOpts improperly formatted: " ++ show os

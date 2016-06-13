@@ -50,13 +50,13 @@ instance Monoid Vote where
 
 newtype ReviewId = ReviewId
   { getReviewId :: Integer
-  } deriving (Show, Eq, Ord, Enum, Hashable, Data, Typeable)
+  } deriving (Show, Eq, Ord, Enum, Hashable, Data, Typeable, Num)
 
 $(deriveSafeCopy 0 'base ''ReviewId)
 
 newtype UserId = UserId
   { getUserId :: Integer
-  } deriving (Show, Eq, Ord, Enum, Hashable, Data, Typeable)
+  } deriving (Show, Eq, Ord, Enum, Hashable, Data, Typeable, Num)
 
 $(deriveSafeCopy 0 'base ''UserId)
 
