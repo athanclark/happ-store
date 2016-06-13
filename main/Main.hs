@@ -10,6 +10,7 @@ import Main.Options (getEnv)
 import Imports
 import Schema
 import Application
+import Cabal
 
 import Network.Wai.Handler.Warp
 import Network.Wai.Middleware.Gzip
@@ -59,17 +60,28 @@ entry p m env = do
   -- monitor
   Monitor.forkServer "localhost" m
 
+  let secondPico = 1000000
+      secondDiff = 1
+      hour = secondPico * 3600
+
   -- session cleaner
-  forkIO $
-    forever $ do
-      let sessionCache = envSession env
-     -- unless (envProduction env) $ do
+  forkIO . forever $ do
+    let sessionCache = envSession env
+    unless (envProduction env) $ do
       nonces <- atomically $ TM.toList sessionCache
       putStrLn $ "Current Cache: " ++ show nonces
-      let secondPico = 1000000
-          secondDiff = 1
-      TM.filterFromNow (60 * secondDiff) sessionCache
-      threadDelay (5 * secondPico)
+    TM.filterFromNow (60 * secondDiff) sessionCache
+    threadDelay (5 * secondPico)
+
+  -- shallow fetcher
+  forkIO . forever $ do
+    updateFetchedShallow env
+    threadDelay hour
+
+  -- deep fetcher
+  forkIO . forever $ do
+    threadDelay $ 24 * hour
+    updateFetchedDeep env
 
   -- main app
   runEnv p $ server' defApp

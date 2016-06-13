@@ -102,6 +102,11 @@ Executable happ-store
                         Application.Types
                         Cabal
                         Cabal.Types
+                        Cabal.Deprecated
+                        Cabal.Distros
+                        Cabal.Docs
+                        Cabal.Uploaded
+                        Cabal.Versions
                         Pages.Home
                         Pages.NotFound
                         Handlers
