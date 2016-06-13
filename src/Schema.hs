@@ -1,6 +1,7 @@
 {-# LANGUAGE
     TemplateHaskell
   , DeriveDataTypeable
+  , TypeFamilies
   #-}
 
 module Schema where
@@ -15,6 +16,7 @@ import Data.SafeCopy hiding (Version)
 import Data.Data
 import qualified Data.HashMap.Lazy as HML
 import qualified Data.HashSet      as HS
+import Control.Monad.Reader
 
 
 data Database = Database
@@ -28,7 +30,14 @@ data Database = Database
 
 $(deriveSafeCopy 0 'base ''Database)
 
-$(makeAcidic ''Database [])
+currentKnwonPackages :: Query Database (StorableHashSet PackageName)
+currentKnwonPackages =
+  knownPackages <$> ask
+
+
+$(makeAcidic ''Database
+    [ 'currentKnwonPackages
+    ])
 
 initDB :: Database
 initDB = Database
