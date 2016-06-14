@@ -47,8 +47,7 @@ lookupPackage package = do
 
 insertPackage :: Package -> Update Database ()
 insertPackage package =
-  modify (\db -> db { packages = IxSet.insert package $ packages db })
-
+  modify (\db -> db { packages = IxSet.updateIx (name package) package $ packages db })
 
 $(makeAcidic ''Database
     [ 'currentKnownPackages

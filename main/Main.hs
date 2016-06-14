@@ -87,15 +87,13 @@ entry p m db ekgId env = do
     TM.filterFromNow (60 * secondDiff) sessionCache
     threadDelay (5 * secondPico)
 
-  -- shallow fetcher
+  -- fetcher
+  shallowCountRef <- newIORef (0 :: Int)
   forkIO . forever $ do
-    updateFetchedShallow env
+    shallowCount <- readIORef shallowCountRef
+    updateFetched env $ shallowCount `mod` 24 == 0
+    writeIORef shallowCountRef $ (shallowCount `mod` 24) + 1
     threadDelay hour
-
-  -- deep fetcher
-  forkIO . forever $ do
-    threadDelay $ 24 * hour
-    updateFetchedDeep env
 
   -- main app
   runEnv p $ server' defApp

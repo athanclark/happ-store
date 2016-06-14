@@ -5,7 +5,7 @@
 
 module Schema.Types where
 
-{-| Globally recognized storable data -}
+{- Globally recognized storable data -}
 
 import Data.Aeson
 import Data.SafeCopy

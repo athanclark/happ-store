@@ -68,8 +68,8 @@ instance FromJSON PackageListing where
   parseJSON (String s) = pure . PackageListing . PackageName $ s
   parseJSON v = fail $ "Not an object: " ++ show v
 
-fetchAllPackages :: Env -> IO [PackageName]
-fetchAllPackages env = do
+fetchPackageList :: Env -> IO [PackageName]
+fetchPackageList env = do
   let manager = envManager env
   request  <- parseUrl "https://hackage.haskell.org/packages/"
   let req = request { requestHeaders = [("Accept", "application/json")] }
@@ -93,7 +93,8 @@ fetchBatch env = do
 
 updateSpecific :: Env -> PackageName -> SpecificFetched -> IO SpecificFetched
 updateSpecific env p xs = do
-  -- putStrLn $ "Fetching data for package " ++ show (getPackageName p)
+  when (envVerbose env) $
+    putStrLn $ "Fetching data for package " ++ show (getPackageName p)
   mvs <- fetchVersions env p
   case mvs of
     Nothing -> pure xs -- package doesn't exist
@@ -110,29 +111,33 @@ updateSpecific env p xs = do
         pure $
           case mut of
             Nothing -> xs -- something slipped with hackage
-            Just ut -> xs { fetchedVersions   = HMS.insert p vs (fetchedVersions xs)
-                          , fetchedUploadTime = HMS.insert p ut (fetchedUploadTime xs)
+            Just ut -> xs { fetchedVersions    = HMS.insert p vs (fetchedVersions xs)
+                          , fetchedUploadTime  = HMS.insert p ut (fetchedUploadTime xs)
+                          , fetchedNeedsUpdate = HS.insert p (fetchedNeedsUpdate xs)
                           }
 
 
 -- | Don't fetch packages that are already known of, even if there may be
 --   new versions out
-updateFetchedShallow :: Env -> IO ()
-updateFetchedShallow env = do
+updateFetched :: Env -> Bool -> IO ()
+updateFetched env deep = do
   let fetchedRef = envFetched env
   fetched' <- stToIO $ readSTRef fetchedRef
   batch'   <- fetchBatch env
   let fetched = fetched' { batch = batch' }
-      db = envDatabase env
+      db      = envDatabase env
   (StorableHashSet knownPackages) <- query' db CurrentKnownPackages
-  allPackages <- HS.fromList <$> fetchAllPackages env
-  let diffPackages = allPackages `HS.difference` knownPackages
+  allPackages <- HS.fromList <$> fetchPackageList env
+  let diffPackages = if deep
+                     then allPackages
+                     else (allPackages `HS.difference` knownPackages)
+                `HS.union` fetchedNeedsUpdate (specific fetched)
   when (diffPackages /= HS.empty) $
-    let go p = bracket_ (waitQSem $ envQueue env) (signalQSem $ envQueue env) $ do
+    let go p = bracket_ (waitQSem $ envQueue env)
+                        (signalQSem $ envQueue env) $ do
           update' db (AddKnownPackage p)
-          sp <- specific <$> stToIO (readSTRef fetchedRef)
-          sp' <- updateSpecific env p sp
-          let newFetched = fetched { specific = sp' }
+          sp <- updateSpecific env p . specific =<< stToIO (readSTRef fetchedRef)
+          let newFetched = fetched { specific = sp }
           stToIO $ writeSTRef fetchedRef newFetched
           mPackage <- makePackage env p
           case mPackage of
@@ -142,16 +147,6 @@ updateFetchedShallow env = do
           mapConcurrently go $ HS.toList diffPackages
           putStrLn "Done."
 
-
--- | Disregard batch jobs, and spam hackage with version requests :\
-updateFetchedDeep :: Env -> IO ()
-updateFetchedDeep env = do
-  let fetchedRef = envFetched env
-  fetched <- stToIO $ readSTRef fetchedRef
-  allPackages <- HS.fromList <$> fetchAllPackages env
-  newSpecificFetched <- foldrM (updateSpecific env) (specific fetched) allPackages
-  let newFetched = fetched { specific = newSpecificFetched }
-  stToIO $ writeSTRef fetchedRef newFetched
 
 
 -- | This assumes the fetch cache is already built
@@ -167,8 +162,7 @@ makePackage env package = do
            v <- latestVersion vs
            pure (vs, v)
        ) of
-    Nothing -> do putStrLn "blast!"
-                  pure Nothing
+    Nothing -> pure Nothing
     Just (versions, version) -> do
       let batchData = batch fetched
           mDepr = HMS.lookup package $ fetchedDeprecated batchData

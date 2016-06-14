@@ -75,6 +75,7 @@ data Env = Env
   , envCwd        :: FilePath -- ^ for File Processing
   , envStatic     :: FilePath
   , envProduction :: Bool
+  , envVerbose    :: Bool
   , envSession    :: SessionCache
   , envPublicKey  :: PublicKey
   , envSecretKey  :: SecretKey
@@ -85,11 +86,12 @@ data Env = Env
   }
 
 instance Show Env where
-  show (Env a c s p _ _ _ _ _ _ _) =
+  show (Env a c s p v _ _ _ _ _ _ _) =
     "Env {envAuthority = " ++ show a ++ ", envCwd = "
                            ++ show c ++ ", envStatic = "
                            ++ show s ++ ", envProduction = "
-                           ++ show p ++ ", envSession = <session>},\
+                           ++ show p ++ ", envVerbose = "
+                           ++ show v ++ ", envSession = <session>},\
                                          \ envPublicKey = <#>,\
                                          \ envSecretKey = <#>,\
                                          \ envManager = <manager>,\
@@ -98,8 +100,8 @@ instance Show Env where
                                          \ envQueue = <queue>}"
 
 instance Eq Env where
-  (Env a1 c1 s1 p1 _ _ _ _ _ _ _) == (Env a2 c2 s2 p2 _ _ _ _ _ _ _) =
-    a1 == a2 && c1 == c2 && s1 == s2 && p1 == p2
+  (Env a1 c1 s1 p1 v1 _ _ _ _ _ _ _) == (Env a2 c2 s2 p2 v2 _ _ _ _ _ _ _) =
+    a1 == a2 && c1 == c2 && s1 == s2 && p1 == p2 && v1 == v2
 
 -- | A really terrible environment value that should only be used with testing
 emptyEnv :: IO Env
@@ -115,6 +117,7 @@ emptyEnv = do
            , envCwd        = "/"
            , envStatic     = "/"
            , envProduction = False
+           , envVerbose    = False
            , envSession    = t
            , envPublicKey  = pk
            , envSecretKey  = sk

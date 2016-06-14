@@ -43,6 +43,7 @@ data AppOpts = AppOpts
   , cwd        :: Maybe FilePath
   , static     :: Maybe FilePath
   , production :: Maybe Bool
+  , verbose    :: Maybe Bool
   } deriving (Show, Eq, Generic)
 
 instance Monoid AppOpts where
@@ -52,15 +53,17 @@ instance Monoid AppOpts where
                    , cwd        = Nothing
                    , static     = Nothing
                    , production = Nothing
+                   , verbose    = Nothing
                    }
-  mappend (AppOpts p1 m1 h1 c1 s1 pr1)
-          (AppOpts p2 m2 h2 c2 s2 pr2) =
+  mappend (AppOpts p1 m1 h1 c1 s1 pr1 v1)
+          (AppOpts p2 m2 h2 c2 s2 pr2 v2) =
     AppOpts { port       = getLast $ Last p1 <> Last p2
             , monitor    = getLast $ Last m1 <> Last m2
             , host       = getLast $ Last h1 <> Last h2
             , cwd        = getLast $ Last c1 <> Last c2
             , static     = getLast $ Last s1 <> Last s2
             , production = getAny <$> (Any <$> pr1) <> (Any <$> pr2)
+            , verbose    = getAny <$> (Any <$> v1)  <> (Any <$> v2)
             }
 
 instance Y.ToJSON AppOpts where
@@ -76,6 +79,7 @@ instance Default AppOpts where
                 , cwd        = Nothing
                 , static     = Nothing
                 , production = Just False
+                , verbose    = Just False
                 }
 
 appOpts :: Parser AppOpts
@@ -108,7 +112,11 @@ appOpts = AppOpts
                \ - DEF: `pwd`/static/" ))
   <*> optional ( switch
         ( long "production"
-       <> help "whether or not to run the app in production mode" ))
+       <> help "run the app in production mode" ))
+  <*> optional ( switch
+        ( long "verbose"
+       <> short 'v'
+       <> help "log details; cache fetches, login attempts, etc." ))
 
 -- | Command-line options
 data App = App
@@ -131,7 +139,7 @@ getEnv = do
   let opts :: ParserInfo App
       opts = info (helper <*> app)
         ( fullDesc
-       <> progDesc "Serve application from PORT over HOST"
+       <> progDesc "Serve application over PORT as HOST under CWD and STATIC, with MONITOR"
        <> header "hApp-Store - an app store for Hackage" )
   commandOpts <- execParser opts :: IO App
   cwd'        <- getCurrentDirectory
@@ -156,6 +164,7 @@ getEnv = do
                      Nothing
                      (Just $ cwd' <> "/")
                      (Just $ cwd' <> "/static/")
+                     Nothing
                      Nothing
       config = dirs <> def <> yamlConfig <> options commandOpts
 
@@ -186,7 +195,8 @@ appOptsToEnv (AppOpts (Just p)
                       (Just h)
                       (Just c)
                       (Just s)
-                      (Just pr)) = do
+                      (Just pr)
+                      (Just v)) = do
   t       <- atomically TM.newTimeMap
   (sk,pk) <- NaCl.newKeypair
   m       <- newManager tlsManagerSettings
@@ -198,6 +208,7 @@ appOptsToEnv (AppOpts (Just p)
          , envCwd        = c
          , envStatic     = s
          , envProduction = pr
+         , envVerbose    = v
          , envSession    = t
          , envPublicKey  = pk
          , envSecretKey  = sk

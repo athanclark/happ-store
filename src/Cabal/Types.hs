@@ -286,8 +286,9 @@ data BatchFetched = BatchFetched
 
 
 data SpecificFetched = SpecificFetched
-  { fetchedUploadTime :: HMS.HashMap PackageName UTCTime -- latest only
-  , fetchedVersions   :: HMS.HashMap PackageName Versions
+  { fetchedUploadTime  :: HMS.HashMap PackageName UTCTime -- latest only
+  , fetchedVersions    :: HMS.HashMap PackageName Versions
+  , fetchedNeedsUpdate :: HS.HashSet  PackageName
   } deriving (Show, Eq)
 
 
@@ -299,7 +300,7 @@ data Fetched = Fetched
 emptyFetched :: Fetched
 emptyFetched = Fetched
   { batch    = BatchFetched HMS.empty HMS.empty HMS.empty
-  , specific = SpecificFetched HMS.empty HMS.empty
+  , specific = SpecificFetched HMS.empty HMS.empty HS.empty
   }
 
 
