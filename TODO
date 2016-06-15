@@ -1,0 +1,9 @@
+TODO:
+
+- ratings specifier
+- route -> init state
+- init state flags
+- nested routes -> init state
+  - parse elm? return Blaze or something? get views?
+  - build a elm model data type as init state?
+  - or just make lucid version analogous?

@@ -91,3 +91,4 @@ instance Indexable User where
     , ixFun $ \u -> HMS.keys . getSSHashMap
                 <=< HMS.elems . getSSHashMap . userVotesReviews $ u
     ]
+
