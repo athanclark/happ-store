@@ -32,12 +32,17 @@ import           Data.Set ((\\))
 import qualified Data.Set            as Set
 import Data.List (intercalate)
 import Data.Maybe (fromMaybe)
-import Data.Time
 import Data.STRef
+import Data.Monoid
+import Data.Time
 import Data.Acid.Advanced (query', update')
-import Control.Monad.Catch (bracket_)
+import Control.Monad.Catch
 import Control.Monad.Reader
+import Control.Monad.Logger
 import Control.Monad.ST
+import Control.Concurrent
+import Control.Concurrent.STM
+import Control.Concurrent.STM.TVar
 import Control.Concurrent.Async (mapConcurrently)
 import Control.Concurrent.QSem
 
@@ -46,17 +51,23 @@ import Control.Concurrent.QSem
 -- | Given a package name and version, try and fetch the cabal description
 fetchCabal :: Env -> PackageName -> Version -> IO (Maybe GenericPackageDescription)
 fetchCabal env (PackageName package) (Version version) = do
-  let manager = envManager env
-      v = intercalate "." $ show <$> version
-  request  <- parseUrl $ "https://hackage.haskell.org/package/"
-                      ++ T.unpack package ++ "-" ++ v ++ "/"
-                      ++ T.unpack package ++ ".cabal"
-  response <- httpLbs request manager
-  if responseStatus response /= status200
-  then pure Nothing
-  else case parsePackageDescription . LBSU8.toString . responseBody $ response of
-         ParseFailed e -> pure Nothing
-         ParseOk _ x   -> pure (Just x)
+  go `catch` (\e -> do print (e :: SomeException)
+                       threadDelay 5000000
+                       fetchCabal env (PackageName package) (Version version)
+             )
+  where
+  go = do
+    let manager = envManager env
+        v = intercalate "." $ show <$> version
+    request  <- parseUrl $ "https://hackage.haskell.org/package/"
+                        ++ T.unpack package ++ "-" ++ v ++ "/"
+                        ++ T.unpack package ++ ".cabal"
+    response <- httpLbs request manager
+    if responseStatus response /= status200
+    then pure Nothing
+    else case parsePackageDescription . LBSU8.toString . responseBody $ response of
+           ParseFailed e -> pure Nothing
+           ParseOk _ x   -> pure (Just x)
 
 
 newtype PackageListing = PackageListing
@@ -66,17 +77,23 @@ newtype PackageListing = PackageListing
 instance FromJSON PackageListing where
   parseJSON (Object o) = o .: "packageName"
   parseJSON (String s) = pure . PackageListing . PackageName $ s
-  parseJSON v = fail $ "Not an object: " ++ show v
+  parseJSON v          = fail $ "Not an object: " ++ show v
 
 fetchPackageList :: Env -> IO [PackageName]
 fetchPackageList env = do
-  let manager = envManager env
-  request  <- parseUrl "https://hackage.haskell.org/packages/"
-  let req = request { requestHeaders = [("Accept", "application/json")] }
-  response <- httpLbs req manager
-  pure $ case decode . responseBody $ response of
-           Nothing -> []
-           Just xs -> getPackageListing <$> xs
+  go `catch` (\e -> do runStderrLoggingT . logErrorN . T.pack $ show (e :: SomeException)
+                       threadDelay 5000000
+                       fetchPackageList env
+             )
+  where
+  go = do
+    let manager = envManager env
+    request    <- parseUrl "https://hackage.haskell.org/packages/"
+    let req     = request { requestHeaders = [("Accept", "application/json")] }
+    response   <- httpLbs req manager
+    pure $ case decode . responseBody $ response of
+             Nothing -> []
+             Just xs -> getPackageListing <$> xs
 
 
 
@@ -86,22 +103,32 @@ fetchPackageList env = do
 
 fetchBatch :: Env -> IO BatchFetched
 fetchBatch env = do
-  depr <- fetchDeprecated env
-  dist <- fetchDistros env
-  docs <- fetchDocs env
+  depr  <- fetchDeprecated env
+  dist  <- fetchDistros env
+  docs  <- fetchDocs env
   return $ BatchFetched depr dist docs
 
-updateSpecific :: Env -> PackageName -> SpecificFetched -> IO SpecificFetched
-updateSpecific env p xs = do
-  when (envVerbose env) $
-    putStrLn $ "Fetching data for package " ++ show (getPackageName p)
+updateSpecific :: Env
+               -> PackageName
+               -> TVar Int
+               -> Int
+               -> SpecificFetched
+               -> IO SpecificFetched
+updateSpecific env p numRef total xs = do
+  when (envVerbose env) $ do
+    ident <- atomically $ do
+      old <- readTVar numRef
+      writeTVar numRef (old + 1)
+      pure old
+    runStderrLoggingT . logInfoN $ "Fetching data for package \"" <> getPackageName p
+            <> "\", " <> T.pack (show ident) <> " out of " <> T.pack (show total)
   mvs <- fetchVersions env p
   case mvs of
     Nothing -> pure xs -- package doesn't exist
     Just vs ->
-      let newVersions = allVersions vs
-          oldVersions = fromMaybe Set.empty
-                      $ allVersions <$> HMS.lookup p (fetchedVersions xs)
+      let newVersions  = allVersions vs
+          oldVersions  = fromMaybe Set.empty
+                       $ allVersions <$> HMS.lookup p (fetchedVersions xs)
           moreVersions = newVersions \\ oldVersions
       in if moreVersions == Set.empty
       then pure xs
@@ -121,71 +148,92 @@ updateSpecific env p xs = do
 --   new versions out
 updateFetched :: Env -> Bool -> IO ()
 updateFetched env deep = do
-  let fetchedRef = envFetched env
-  fetched' <- stToIO $ readSTRef fetchedRef
-  batch'   <- fetchBatch env
-  let fetched = fetched' { batch = batch' }
-      db      = envDatabase env
+  let fetchedRef   = envFetched env
+  fetched'        <- stToIO $ readSTRef fetchedRef
+  batch'          <- fetchBatch env
+  let fetched      = fetched' { batch = batch' }
+      db           = envDatabase env
   (StorableHashSet knownPackages) <- query' db CurrentKnownPackages
-  allPackages <- HS.fromList <$> fetchPackageList env
+  allPackages     <- HS.fromList <$> fetchPackageList env
+  count           <- atomically $ newTVar 1
   let diffPackages = if deep
                      then allPackages
                      else (allPackages `HS.difference` knownPackages)
-                `HS.union` fetchedNeedsUpdate (specific fetched)
+                          `HS.union` fetchedNeedsUpdate (specific fetched)
   when (diffPackages /= HS.empty) $
-    let go p = bracket_ (waitQSem $ envQueue env)
+    let go :: PackageName -> IO ()
+        go p = bracket_ (waitQSem $ envQueue env)
                         (signalQSem $ envQueue env) $ do
           update' db (AddKnownPackage p)
-          sp <- updateSpecific env p . specific =<< stToIO (readSTRef fetchedRef)
-          let newFetched = fetched { specific = sp }
-          stToIO $ writeSTRef fetchedRef newFetched
-          mPackage <- makePackage env p
+          newSpecific <- updateSpecific env p count (HS.size diffPackages) . specific
+                     =<< stToIO (readSTRef fetchedRef)
+          stToIO . writeSTRef fetchedRef
+                 $ fetched
+                     { specific = newSpecific
+                                    { fetchedNeedsUpdate = HS.delete p $
+                                        fetchedNeedsUpdate newSpecific
+                                    }
+                     }
+          mPackage    <- makePackage env p
           case mPackage of
-            Nothing -> pure ()
+            Nothing      -> pure ()
             Just package -> update' db (InsertPackage package)
-    in do putStrLn $ "Fetching " ++ show (length diffPackages) ++ " packages... "
+    in do start <- getCurrentTime
+          runStderrLoggingT . logInfoN $
+            "Fetching " <> T.pack (show $ length diffPackages) <> " packages... "
           mapConcurrently go $ HS.toList diffPackages
-          putStrLn "Done."
+          finish <- getCurrentTime
+          runStderrLoggingT . logInfoN $
+            "Done, in " <> snd (T.foldl (\((hitDecimal, past), acc) c ->
+                                             if not hitDecimal
+                                             then ((c == '.', past), T.snoc acc c)
+                                             else if past >= 2
+                                             then ((hitDecimal, past), acc)
+                                             else ((hitDecimal, past + 1), T.snoc acc c)
+                                        ) ((False, 0), "")
+                               $ T.pack (show $ diffUTCTime finish start / 60)
+                               )
+                        <> " minutes."
 
 
 
 -- | This assumes the fetch cache is already built
 makePackage :: Env -> PackageName -> IO (Maybe Package)
 makePackage env package = do
-  let fetchedRef = envFetched env
+  let fetchedRef   = envFetched env
   fetched <- stToIO $ readSTRef fetchedRef
       -- if specific defs fail, the package can't be built
   let specificData = specific fetched
-      mUpload = HMS.lookup package $ fetchedUploadTime specificData
-      mVersions = HMS.lookup package $ fetchedVersions specificData
+      mUpload      = HMS.lookup package $ fetchedUploadTime specificData
+      mVersions    = HMS.lookup package $ fetchedVersions specificData
   case (do vs <- mVersions
-           v <- latestVersion vs
+           v  <- latestVersion vs
            pure (vs, v)
        ) of
     Nothing -> pure Nothing
     Just (versions, version) -> do
       let batchData = batch fetched
-          mDepr = HMS.lookup package $ fetchedDeprecated batchData
-          dists = StorableStrictHashMap . fromMaybe HMS.empty $
-                    HMS.lookup package $ fetchedDistros batchData
-          mDocs = HMS.lookup package $ fetchedDocs batchData
+          mDepr     = HMS.lookup package $ fetchedDeprecated batchData
+          dists     = StorableStrictHashMap . fromMaybe HMS.empty
+                    $ HMS.lookup package $ fetchedDistros batchData
+          mDocs     = HMS.lookup package $ fetchedDocs batchData
 
       mDescription <- fetchCabal env package version
       pure $ do
         upload <- mUpload
-        p <- C.packageDescription <$> mDescription
+        p      <- C.packageDescription <$> mDescription
         Just Package
                { name          = PackageName . T.pack . unPackageName
-                                             . pkgName . C.package $ p
+                               . pkgName . C.package $ p
                , author        = T.pack $ C.author p
                , versions      = versions
                , maintainer    = T.pack $ C.maintainer p
                , license       = C.license p
                , copyright     = T.pack $ C.copyright p
                , synopsis      = T.pack $ C.synopsis p
-               , categories    = StorableHashSet $
-                                   HS.fromList . fmap T.strip . T.splitOn ","
-                                               . T.pack . C.category $ p
+               , categories    = StorableHashSet $ HS.fromList
+                               . fmap T.strip . T.splitOn ","
+                               . T.pack . C.category $ p
                , stability     = T.pack $ C.stability p
                , homepage      = let h = C.homepage p
                                  in if h == "" then Nothing else Just $ T.pack h

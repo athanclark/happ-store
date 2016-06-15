@@ -20,6 +20,7 @@ import Control.Applicative
 import Control.Monad.Catch
 import Control.Monad.IO.Class
 import Control.Monad.Reader
+import Control.Concurrent
 
 
 satisfies :: [Int] -> Preferred -> Bool
@@ -147,22 +148,28 @@ parsePreferred =
 
 
 fetchPreferred :: Env -> IO (HashMap PackageName Preferred)
-fetchPreferred env = do
-  let manager = envManager env
-  request  <- parseUrl "https://hackage.haskell.org/packages/preferred-versions"
-  response <- httpLbs request manager
-  let xs = dropWhile ("--" `LT.isPrefixOf`)
-         . LT.lines . LT.decodeUtf8 . responseBody $ response
-      startingPref c = c == '<' || c == '>' || c == '='
-      parsePref p = case A.parse parsePreferred p of
-                      Done _ r -> pure r
-                      e        -> throwM . ParseError . show $ e
-      nameAndPrefs :: LT.Text -> IO (PackageName, Preferred)
-      nameAndPrefs l = do
-        let (n,p) = LT.span (not . startingPref) l
-        p' <- parsePref $ LT.strip p
-        pure ( PackageName . T.strip . LT.toStrict $ n
-             , p'
+fetchPreferred env =
+  go `catch` (\e -> do print (e :: SomeException)
+                       threadDelay 5000000
+                       fetchPreferred env
              )
-  ys <- mapM nameAndPrefs xs
-  pure $ HM.fromList ys
+  where
+    go = do
+      let manager = envManager env
+      request  <- parseUrl "https://hackage.haskell.org/packages/preferred-versions"
+      response <- httpLbs request manager
+      let xs = dropWhile ("--" `LT.isPrefixOf`)
+             . LT.lines . LT.decodeUtf8 . responseBody $ response
+          startingPref c = c == '<' || c == '>' || c == '='
+          parsePref p = case A.parse parsePreferred p of
+                          Done _ r -> pure r
+                          e        -> throwM . ParseError . show $ e
+          nameAndPrefs :: LT.Text -> IO (PackageName, Preferred)
+          nameAndPrefs l = do
+            let (n,p) = LT.span (not . startingPref) l
+            p' <- parsePref $ LT.strip p
+            pure ( PackageName . T.strip . LT.toStrict $ n
+                 , p'
+                 )
+      ys <- mapM nameAndPrefs xs
+      pure $ HM.fromList ys

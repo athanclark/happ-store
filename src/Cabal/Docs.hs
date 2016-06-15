@@ -16,6 +16,7 @@ import Data.Char (isDigit)
 import Data.Maybe (fromJust)
 import Control.Monad.Catch
 import Control.Monad.Reader
+import Control.Concurrent
 
 
 
@@ -27,16 +28,22 @@ parsePackageNV s =
       )
 
 fetchDocs :: Env -> IO (HashMap PackageName Version)
-fetchDocs env = do
-  let manager = envManager env
-  request <- parseUrl "https://hackage.haskell.org/packages/docs"
-  let req = request { requestHeaders = [("Accept","application/json")] }
-  response <- httpLbs req manager
-  case decode (responseBody response) of
-    Nothing -> throwM . DocsNoParse . responseBody $ response
-    Just xs ->
-      pure . HM.mapMaybe (\vs -> if null vs
-                                 then Nothing
-                                 else Just $ maximum vs)
-           . foldr (uncurry $ HM.insertWith (++)) HM.empty
-           $ map (\(n,_) -> parsePackageNV n) (xs :: [(T.Text, Bool)])
+fetchDocs env =
+  go `catch` (\e -> do print (e :: SomeException)
+                       threadDelay 5000000
+                       fetchDocs env
+             )
+  where
+    go = do
+      let manager = envManager env
+      request <- parseUrl "https://hackage.haskell.org/packages/docs"
+      let req = request { requestHeaders = [("Accept","application/json")] }
+      response <- httpLbs req manager
+      case decode (responseBody response) of
+        Nothing -> throwM . DocsNoParse . responseBody $ response
+        Just xs ->
+          pure . HM.mapMaybe (\vs -> if null vs
+                                     then Nothing
+                                     else Just $ maximum vs)
+               . foldr (uncurry $ HM.insertWith (++)) HM.empty
+               $ map (\(n,_) -> parsePackageNV n) (xs :: [(T.Text, Bool)])

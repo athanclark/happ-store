@@ -16,6 +16,7 @@ import Network.HTTP.Client
 import Data.Time
 import Control.Monad.Catch
 import Control.Monad.Reader
+import Control.Concurrent
 
 
 
@@ -48,10 +49,16 @@ parseUploadTime t =
 
 fetchUploadTime :: Env -> PackageName -> Version -> IO (Maybe UTCTime)
 fetchUploadTime env (PackageName package) version = do
-  let manager = envManager env
-      url = "https://hackage.haskell.org/package/"
-         ++ T.unpack package ++ "-" ++ show version ++ "/upload-time"
-  request  <- parseUrl url
-  response <- httpLbs request manager
-  let t = T.decodeUtf8 . LBS.toStrict . responseBody $ response
-  pure (parseUploadTime t) `catch` (\(_ :: SomeException) -> pure Nothing)
+  go `catch` (\e -> do print (e :: SomeException)
+                       threadDelay 5000000
+                       fetchUploadTime env (PackageName package) version
+             )
+  where
+  go = do
+    let manager = envManager env
+        url = "https://hackage.haskell.org/package/"
+           ++ T.unpack package ++ "-" ++ show version ++ "/upload-time"
+    request  <- parseUrl url
+    response <- httpLbs request manager
+    let t = T.decodeUtf8 . LBS.toStrict . responseBody $ response
+    pure (parseUploadTime t) `catch` (\(_ :: SomeException) -> pure Nothing)

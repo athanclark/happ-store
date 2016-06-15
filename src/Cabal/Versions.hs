@@ -16,6 +16,7 @@ import Network.HTTP.Client
 import Control.Monad.Catch
 import Control.Monad.Reader
 import Control.Error
+import Control.Concurrent
 
 
 latestVersion :: Versions -> Maybe Version
@@ -26,11 +27,17 @@ latestVersion (Versions ns ds us) =
       else Just $! Set.findMax all'
 
 fetchVersions :: Env -> PackageName -> IO (Maybe Versions)
-fetchVersions env (PackageName package) = do
-  let manager = envManager env
-  request <- parseUrl $ "https://hackage.haskell.org/package/"
-                     ++ T.unpack package ++ "/preferred"
-  let req = request
-              { requestHeaders = [("Accept","application/json")] }
-  response <- httpLbs req manager
-  pure . hush . eitherDecode . responseBody $ response
+fetchVersions env (PackageName package) =
+  go `catch` (\e -> do print (e :: SomeException)
+                       threadDelay 5000000
+                       fetchVersions env (PackageName package)
+             )
+  where
+  go = do
+    let manager = envManager env
+    request <- parseUrl $ "https://hackage.haskell.org/package/"
+                       ++ T.unpack package ++ "/preferred"
+    let req = request
+                { requestHeaders = [("Accept","application/json")] }
+    response <- httpLbs req manager
+    pure . hush . eitherDecode . responseBody $ response

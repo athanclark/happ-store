@@ -25,7 +25,9 @@ import Data.Acid
 import Data.Acid.Memory (openMemoryState)
 import Data.Acid.Local (createCheckpointAndClose)
 import Data.IORef
+import qualified Data.Text as T
 import Control.Monad
+import Control.Monad.Logger
 import Control.Concurrent.STM (atomically)
 import Control.Concurrent
 import Control.Exception
@@ -81,9 +83,9 @@ entry p m db ekgId env = do
   -- session cleaner
   forkIO . forever $ do
     let sessionCache = envSession env
-    unless (envProduction env) $ do
+    when (envVerbose env) $ do
       nonces <- atomically $ TM.toList sessionCache
-      putStrLn $ "Current Cache: " ++ show nonces
+      runStderrLoggingT . logInfoN $ "Current Cache: " <> T.pack (show nonces)
     TM.filterFromNow (60 * secondDiff) sessionCache
     threadDelay (5 * secondPico)
 
@@ -99,7 +101,7 @@ entry p m db ekgId env = do
   runEnv p $ server' defApp
   where
     server'  = gzip def
-            -- . logStdoutDev
+             . (if (envVerbose env) then logStdoutDev else id)
              . runMiddlewareT runAppT' server
     server   = securityLayer
              . staticLayer

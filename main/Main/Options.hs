@@ -116,7 +116,7 @@ appOpts = AppOpts
   <*> optional ( switch
         ( long "verbose"
        <> short 'v'
-       <> help "log details; cache fetches, login attempts, etc." ))
+       <> help "log details; http requests, cache fetches" ))
 
 -- | Command-line options
 data App = App
@@ -168,8 +168,8 @@ getEnv = do
                      Nothing
       config = dirs <> def <> yamlConfig <> options commandOpts
 
-  cwdDir    <- toFilePath <$> parseAbsDir (fromJust $ cwd config)
-  staticDir <- toFilePath <$> parseAbsDir (fromJust $ static config)
+  cwdDir       <- toFilePath <$> parseAbsDir (fromJust $ cwd config)
+  staticDir    <- toFilePath <$> parseAbsDir (fromJust $ static config)
 
   cwdExists    <- doesDirectoryExist cwdDir
   staticExists <- doesDirectoryExist staticDir
