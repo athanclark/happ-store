@@ -69,6 +69,13 @@ type SessionCache = TimeMap SessionId UserId
 
 -- ** The Execution Environment
 
+data Queues = Queues
+  { queueFetch :: QSem
+  , queueHtml  :: QSem
+  , queueJson  :: QSem
+  }
+
+
 -- The environment accessible from our application
 data Env = Env
   { envAuthority  :: UrlAuthority
@@ -82,7 +89,7 @@ data Env = Env
   , envManager    :: Manager
   , envDatabase   :: AcidState Database
   , envFetched    :: STRef RealWorld Fetched
-  , envQueue      :: QSem
+  , envQueues     :: Queues
   }
 
 instance Show Env where
@@ -97,7 +104,7 @@ instance Show Env where
                                          \ envManager = <manager>,\
                                          \ envDatabase = <database>,\
                                          \ envFetched = <fetched>,\
-                                         \ envQueue = <queue>}"
+                                         \ envQueues = <queues>}"
 
 instance Eq Env where
   (Env a1 c1 s1 p1 v1 _ _ _ _ _ _ _) == (Env a2 c2 s2 p2 v2 _ _ _ _ _ _ _) =
@@ -111,7 +118,9 @@ emptyEnv = do
   m       <- newManager tlsManagerSettings
   db      <- openMemoryState initDB
   f       <- stToIO $ newSTRef emptyFetched
-  q       <- newQSem 100
+  lf      <- newQSem 100
+  lh      <- newQSem 100
+  lj      <- newQSem 1000
   let auth = UrlAuthority "http" True Nothing "localhost" Nothing
   pure Env { envAuthority  = auth
            , envCwd        = "/"
@@ -124,7 +133,7 @@ emptyEnv = do
            , envManager    = m
            , envDatabase   = db
            , envFetched    = f
-           , envQueue      = q
+           , envQueues     = Queues lf lh lj
            }
 
 
@@ -145,6 +154,7 @@ type MonadApp m =
   ( MonadIO m
   , MonadThrow m
   , MonadCatch m
+  , MonadMask m
   , MonadLogger m
   , MonadReader Env m
   , MonadUrl Abs File m

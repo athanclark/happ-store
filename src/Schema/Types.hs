@@ -1,6 +1,7 @@
 {-# LANGUAGE
     DeriveDataTypeable
   , GeneralizedNewtypeDeriving
+  , StandaloneDeriving
   #-}
 
 module Schema.Types where
@@ -13,7 +14,10 @@ import qualified Data.HashMap.Strict as HMS
 import qualified Data.HashMap.Lazy   as HML
 import qualified Data.HashSet        as HS
 import Data.Hashable                 (Hashable)
+import qualified Data.Text as T
+import Text.Read
 import Data.Data
+import Control.Monad
 
 
 newtype StorableStrictHashMap k a = StorableStrictHashMap
@@ -32,12 +36,12 @@ instance ( Eq k
   putCopy (StorableStrictHashMap xs) = contain . safePut . HMS.toList $ xs
   getCopy = contain $ (StorableStrictHashMap . HMS.fromList) <$> safeGet
 
-instance (FromJSON k, FromJSON a, Eq k, Hashable k
+instance ( FromJSON a, Eq k, Hashable k, FromJSON k
          ) => FromJSON (StorableStrictHashMap k a) where
-  parseJSON x = (StorableStrictHashMap . HMS.fromList) <$> parseJSON x
+  parseJSON j = (StorableStrictHashMap . HMS.fromList) <$> parseJSON j
 
-instance (ToJSON k, ToJSON a) => ToJSON (StorableStrictHashMap k a) where
-  toJSON (StorableStrictHashMap xs) = toJSON (HMS.toList xs)
+instance (ToJSON a, ToJSON k) => ToJSON (StorableStrictHashMap k a) where
+  toJSON (StorableStrictHashMap xs) = toJSON $ HMS.toList xs
 
 newtype StorableLazyHashMap k a = StorableLazyHashMap
   { getSLHashMap :: HML.HashMap k a

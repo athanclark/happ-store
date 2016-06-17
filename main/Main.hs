@@ -39,7 +39,7 @@ import Control.Exception
 main :: IO ()
 main = do
   ekgId <- newIORef Nothing
-  (toEnv,p,m,isProd) <- getEnv
+  (toEnv,p,m,isProd,lf,lh,lj) <- getEnv
   let killEkg = mapM_ killThread =<< readIORef ekgId
       mkDb :: (AcidState Database -> IO ()) -> IO ()
       mkDb | isProd    = bracket (openLocalState initDB)
@@ -58,12 +58,15 @@ main = do
       , "under certain conditions; see the GNU General Public License version 3"
       , "for details."
       , ""
-      , "- port:       " <> show p
-      , "- monitor:    " <> show m
-      , "- hostname:   " <> showUrlAuthority (envAuthority env)
-      , "- cwd:        " <> envCwd env
-      , "- static:     " <> envStatic env
-      , "- production: " <> show (envProduction env)
+      , "- port:        " <> show p
+      , "- monitor:     " <> show m
+      , "- hostname:    " <> showUrlAuthority (envAuthority env)
+      , "- cwd:         " <> envCwd env
+      , "- static:      " <> envStatic env
+      , "- production:  " <> show (envProduction env)
+      , "- max fetches: " <> show lf
+      , "- max html:    " <> show lh
+      , "- max json:    " <> show lj
       ]
     entry p m db ekgId env
 

@@ -18,9 +18,8 @@ routes :: ( MonadApp m
 routes = do
   matchHere (action homeHandle)
   matchGroup (l_ "packages" </> o_) $ do
-    matchHere (action homeHandle)
-    match (wordChunk </> o_)
-      packagesHandle
+    matchHere allPackagesHandle
+    match (wordChunk </> o_) packagesHandle
     match (l_ "search" </> wordChunk </> o_)
       browseSearchHandle
   matchGroup (l_ "people" </> o_) $ do

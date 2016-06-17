@@ -30,6 +30,7 @@ import qualified Data.HashSet        as HS
 import qualified Data.HashMap.Strict as HMS
 import           Data.Set ((\\))
 import qualified Data.Set            as Set
+import qualified Data.Map.Strict     as MapS
 import Data.List (intercalate)
 import Data.Maybe (fromMaybe)
 import Data.STRef
@@ -50,7 +51,7 @@ import Control.Concurrent.QSem
 
 -- | Given a package name and version, try and fetch the cabal description
 fetchCabal :: Env -> PackageName -> Version -> IO (Maybe GenericPackageDescription)
-fetchCabal env (PackageName package) (Version version) = do
+fetchCabal env (PackageName package) (Version version) =
   go `catch` (\e -> do print (e :: SomeException)
                        threadDelay 5000000
                        fetchCabal env (PackageName package) (Version version)
@@ -80,7 +81,7 @@ instance FromJSON PackageListing where
   parseJSON v          = fail $ "Not an object: " ++ show v
 
 fetchPackageList :: Env -> IO [PackageName]
-fetchPackageList env = do
+fetchPackageList env =
   go `catch` (\e -> do runStderrLoggingT . logErrorN . T.pack $ show (e :: SomeException)
                        threadDelay 5000000
                        fetchPackageList env
@@ -110,15 +111,15 @@ fetchBatch env = do
 
 updateSpecific :: Env
                -> PackageName
-               -> TVar Int
+               -> STRef RealWorld Int
                -> Int
                -> SpecificFetched
                -> IO SpecificFetched
 updateSpecific env p numRef total xs = do
   when (envVerbose env) $ do
-    ident <- atomically $ do
-      old <- readTVar numRef
-      writeTVar numRef (old + 1)
+    ident <- stToIO $ do
+      old <- readSTRef numRef
+      writeSTRef numRef (old + 1)
       pure old
     runStderrLoggingT . logInfoN $ "Fetching data for package \"" <> getPackageName p
             <> "\", " <> T.pack (show ident) <> " out of " <> T.pack (show total)
@@ -153,18 +154,17 @@ updateFetched env deep = do
   batch'          <- fetchBatch env
   let fetched      = fetched' { batch = batch' }
       db           = envDatabase env
-  (StorableHashSet knownPackages) <- query' db CurrentKnownPackages
+  knownPackages   <- (HS.fromList . Set.toList) <$> query' db CurrentKnownPackages
   allPackages     <- HS.fromList <$> fetchPackageList env
-  count           <- atomically $ newTVar 1
+  count           <- stToIO $ newSTRef 1
   let diffPackages = if deep
                      then allPackages
                      else (allPackages `HS.difference` knownPackages)
                           `HS.union` fetchedNeedsUpdate (specific fetched)
   when (diffPackages /= HS.empty) $
     let go :: PackageName -> IO ()
-        go p = bracket_ (waitQSem $ envQueue env)
-                        (signalQSem $ envQueue env) $ do
-          update' db (AddKnownPackage p)
+        go p = bracket_ (waitQSem . queueFetch $ envQueues env)
+                        (signalQSem . queueFetch $ envQueues env) $ do
           newSpecific <- updateSpecific env p count (HS.size diffPackages) . specific
                      =<< stToIO (readSTRef fetchedRef)
           stToIO . writeSTRef fetchedRef
@@ -214,7 +214,7 @@ makePackage env package = do
     Just (versions, version) -> do
       let batchData = batch fetched
           mDepr     = HMS.lookup package $ fetchedDeprecated batchData
-          dists     = StorableStrictHashMap . fromMaybe HMS.empty
+          dists     = fromMaybe MapS.empty . fmap (MapS.fromList . HMS.toList)
                     $ HMS.lookup package $ fetchedDistros batchData
           mDocs     = HMS.lookup package $ fetchedDocs batchData
 
@@ -225,16 +225,17 @@ makePackage env package = do
         Just Package
                { name          = PackageName . T.pack . unPackageName
                                . pkgName . C.package $ p
-               , author        = T.pack $ C.author p
+               , author        = Author . T.pack $ C.author p
                , versions      = versions
-               , maintainer    = T.pack $ C.maintainer p
+               , maintainer    = Maintainer . T.pack $ C.maintainer p
                , license       = C.license p
                , copyright     = T.pack $ C.copyright p
                , synopsis      = T.pack $ C.synopsis p
-               , categories    = StorableHashSet $ HS.fromList
-                               . fmap T.strip . T.splitOn ","
+               , categories    = Set.fromList
+                               . fmap (Category . T.strip)
+                               . T.splitOn ","
                                . T.pack . C.category $ p
-               , stability     = T.pack $ C.stability p
+               , stability     = Stability . T.pack $ C.stability p
                , homepage      = let h = C.homepage p
                                  in if h == "" then Nothing else Just $ T.pack h
                , sourceRepos   = C.sourceRepos p

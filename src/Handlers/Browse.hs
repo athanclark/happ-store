@@ -42,6 +42,17 @@ packagesHandle packageName app req respond = do
             Just p  -> json p
   handle app req respond
 
+
+allPackagesHandle :: MonadApp m
+                  => MiddlewareT m
+allPackagesHandle app req respond = do
+  db <- envDatabase <$> ask
+  vs <- query' db CurrentKnownPackageVersions
+  let handle = action $
+        get $
+          json vs
+  handle app req respond
+
 browseViewHandle :: MonadApp m
                  => T.Text
                  -> MiddlewareT m

@@ -41,6 +41,7 @@ Library
                         Schema.Types
                         Session
                         Imports
+                        Network.Wai.ContentType.Extended
   Build-Depends:        base >= 4.8 && < 5
                       , acid-state
                       , async
@@ -88,6 +89,7 @@ Library
                       , wai-transformers >= 0.0.5
                       , wai-middleware-verbs >= 0.3.0
                       , wai-middleware-content-type
+                      , wai-websockets
                       , webpage
 
 Executable happ-store

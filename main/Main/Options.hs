@@ -44,6 +44,9 @@ data AppOpts = AppOpts
   , static     :: Maybe FilePath
   , production :: Maybe Bool
   , verbose    :: Maybe Bool
+  , limitFetch :: Maybe Int
+  , limitHtml  :: Maybe Int
+  , limitJson  :: Maybe Int
   } deriving (Show, Eq, Generic)
 
 instance Monoid AppOpts where
@@ -54,9 +57,12 @@ instance Monoid AppOpts where
                    , static     = Nothing
                    , production = Nothing
                    , verbose    = Nothing
+                   , limitFetch = Nothing
+                   , limitHtml  = Nothing
+                   , limitJson  = Nothing
                    }
-  mappend (AppOpts p1 m1 h1 c1 s1 pr1 v1)
-          (AppOpts p2 m2 h2 c2 s2 pr2 v2) =
+  mappend (AppOpts p1 m1 h1 c1 s1 pr1 v1 lf1 lh1 lj1)
+          (AppOpts p2 m2 h2 c2 s2 pr2 v2 lf2 lh2 lj2) =
     AppOpts { port       = getLast $ Last p1 <> Last p2
             , monitor    = getLast $ Last m1 <> Last m2
             , host       = getLast $ Last h1 <> Last h2
@@ -64,6 +70,9 @@ instance Monoid AppOpts where
             , static     = getLast $ Last s1 <> Last s2
             , production = getAny <$> (Any <$> pr1) <> (Any <$> pr2)
             , verbose    = getAny <$> (Any <$> v1)  <> (Any <$> v2)
+            , limitFetch = getLast $ Last lf1 <> Last lf2
+            , limitHtml  = getLast $ Last lh1 <> Last lh2
+            , limitJson  = getLast $ Last lj1 <> Last lj2
             }
 
 instance Y.ToJSON AppOpts where
@@ -80,6 +89,9 @@ instance Default AppOpts where
                 , static     = Nothing
                 , production = Just False
                 , verbose    = Just False
+                , limitFetch = Just 100
+                , limitHtml  = Just 100
+                , limitJson  = Just 1000
                 }
 
 appOpts :: Parser AppOpts
@@ -117,6 +129,18 @@ appOpts = AppOpts
         ( long "verbose"
        <> short 'v'
        <> help "log details; http requests, cache fetches" ))
+  <*> optional ( option auto
+        ( long "limit-fetch"
+       <> help "max number of concurrent hackage data minig requests - DEF: 100"
+       <> metavar "LIMFETCH" ))
+  <*> optional ( option auto
+        ( long "limit-html"
+       <> metavar "LIMHTML"
+       <> help "max number of active concurrent html requests - DEF: 100" ))
+  <*> optional ( option auto
+        ( long "limit-json"
+       <> metavar "LIMJSON"
+       <> help "max number of active concurrent json requests - DEF: 1000" ))
 
 -- | Command-line options
 data App = App
@@ -134,7 +158,7 @@ app = App
        <> help "absolute path to config file - DEF: `pwd`/config/app.yaml" ))
 
 
-getEnv :: IO (AcidState Database -> Env, Int, Int, Bool)
+getEnv :: IO (AcidState Database -> Env, Int, Int, Bool, Int, Int, Int)
 getEnv = do
   let opts :: ParserInfo App
       opts = info (helper <*> app)
@@ -166,6 +190,9 @@ getEnv = do
                      (Just $ cwd' <> "/static/")
                      Nothing
                      Nothing
+                     Nothing
+                     Nothing
+                     Nothing
       config = dirs <> def <> yamlConfig <> options commandOpts
 
   cwdDir       <- toFilePath <$> parseAbsDir (fromJust $ cwd config)
@@ -182,6 +209,9 @@ getEnv = do
                          , fromJust $ port config
                          , fromJust $ monitor config
                          , fromJust $ production config
+                         , fromJust $ limitFetch config
+                         , fromJust $ limitHtml config
+                         , fromJust $ limitJson config
                          )
 
 
@@ -196,12 +226,17 @@ appOptsToEnv (AppOpts (Just p)
                       (Just c)
                       (Just s)
                       (Just pr)
-                      (Just v)) = do
+                      (Just v)
+                      (Just lf)
+                      (Just lh)
+                      (Just lj)) = do
   t       <- atomically TM.newTimeMap
   (sk,pk) <- NaCl.newKeypair
   m       <- newManager tlsManagerSettings
   f       <- stToIO $ newSTRef emptyFetched
-  q       <- newQSem 100
+  lf'     <- newQSem lf
+  lh'     <- newQSem lh
+  lj'     <- newQSem lj
   let auth = UrlAuthority "http" True Nothing h $ p <$ guard (p /= 80)
   pure $ \db -> Env
          { envAuthority  = auth
@@ -215,6 +250,6 @@ appOptsToEnv (AppOpts (Just p)
          , envManager    = m
          , envDatabase   = db
          , envFetched    = f
-         , envQueue      = q
+         , envQueues     = Queues lf' lh' lj'
          }
 appOptsToEnv os = error $ "AppOpts improperly formatted: " ++ show os

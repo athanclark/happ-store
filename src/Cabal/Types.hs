@@ -17,6 +17,7 @@ import Data.Hashable
 import qualified Data.Text            as T
 import Data.Attoparsec.Text           as A
 import qualified Data.Set             as Set
+import qualified Data.Map.Strict      as MapS
 import Data.Tree.Set                  as STr
 import qualified Data.Version         as V
 import qualified Data.HashSet         as HS
@@ -223,18 +224,18 @@ instance ToJSON License where
 data Package = Package
   { name          :: PackageName
   , versions      :: Versions
-  , author        :: T.Text
-  , maintainer    :: T.Text
+  , author        :: Author
+  , maintainer    :: Maintainer
   , license       :: License
   , copyright     :: T.Text
   , synopsis      :: T.Text
-  , categories    :: StorableHashSet T.Text
-  , stability     :: T.Text
+  , categories    :: Set.Set Category
+  , stability     :: Stability
   , homepage      :: Maybe T.Text
   , sourceRepos   :: [SourceRepo]
   , isDeprecated  :: Maybe [PackageName]
   , docs          :: Maybe Version -- hackage only :\
-  , distributions :: StorableStrictHashMap Distro (Version, T.Text)
+  , distributions :: MapS.Map Distro (Version, T.Text)
   , uploadedAt    :: UTCTime
   -- , rating :: ? Votes?
   -- , tags :: ... user suggested also, maybe just a sum type or something
@@ -244,6 +245,12 @@ data Package = Package
   -- TODO: Make versions their own thing: we shouldn't have a different package
   --       concept for every version
   } deriving (Show, Eq, Ord, Generic, Data, Typeable)
+
+instance (FromJSON k, FromJSON a, Ord k) => FromJSON (MapS.Map k a) where
+  parseJSON x = MapS.fromList <$> parseJSON x
+
+instance (ToJSON k, ToJSON a) => ToJSON (MapS.Map k a) where
+  toJSON x = toJSON $ MapS.toList x
 
 instance FromJSON Package
 instance ToJSON Package
@@ -271,8 +278,8 @@ instance Indexable Package where
     , ixFun $ \p -> [author p]
     , ixFun $ \p -> [maintainer p]
     , ixFun $ \p -> [license p]
-    , ixFun $ \p -> HS.toList . getStorableHashSet . categories $ p
-    , ixFun $ \p -> HMS.keys  . getSSHashMap    . distributions $ p
+    , ixFun $ \p -> Set.toList . categories $ p
+    , ixFun $ \p -> MapS.keys  . distributions $ p
     ]
 
 

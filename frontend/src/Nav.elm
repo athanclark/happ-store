@@ -15,24 +15,30 @@ type alias Model =
 
 type Msg
   = ChangePage Links.Link
+  | ChangedPage Links.Link
   | ChangePosition Float
   | ChangeVisibility Float
 
-init : (Model, Cmd Msg)
-init =
-  ( { currentPage = Links.Home
+init : Links.Link -> (Model, Cmd Msg)
+init link =
+  ( { currentPage = link
     , position    = 0
     , visibility  = 0
     }
   , Cmd.none
   )
 
-update : Msg -> Model -> (Model, Cmd Msg)
-update action model =
+update : Links.ChangeLink a -> Msg -> Model -> (Model, Cmd (Result Msg a))
+update changeLink action model =
   case action of
-    ChangePage l ->
+    -- page changes should be terminal state changes
+    ChangedPage l ->
       ( { model | currentPage = l }
       , Cmd.none
+      )
+    ChangePage l ->
+      ( model
+      , Cmd.map Ok <| changeLink.gotoLink l
       )
     ChangePosition p ->
       ( { model | position = p }

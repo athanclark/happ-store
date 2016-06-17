@@ -3,6 +3,8 @@ module Main exposing (..)
 import Nav
 import Cmd.Extra exposing (mkCmd)
 import Session
+import Cabal
+import Links
 
 import Window
 import Navigation
@@ -12,6 +14,7 @@ import Ease
 import Task
 import Time exposing (Time, millisecond)
 import Color
+import String
 
 
 import Html.App        as App
@@ -36,6 +39,7 @@ isMobile s =
     _      -> False
 
 
+
 type alias Model =
   { nav             : Nav.Model
   , deviceWidth     : ResponsiveScreen
@@ -53,15 +57,16 @@ type Msg
   | DurationMsg (Duration.Msg Msg)
   | ChangeDimmer Float
   | SessionMsg (Session.Msg Msg)
+  | ChangedLocation Links.Link
 
 
 -- type alias Flags =
 --   { privateKey : 
 --   }
 
-init : (Model, Cmd Msg)
-init =
-  let (newNav, navEff) = Nav.init
+init : Links.Link -> (Model, Cmd Msg)
+init link =
+  let (newNav, navEff) = Nav.init link
       (newSession, sessionEff) = Session.init
   in  ( { nav             = newNav
         , deviceWidth     = Mobile
@@ -80,13 +85,29 @@ init =
           ]
       )
 
+changeLink : Links.ChangeLink Msg
+changeLink =
+  { gotoHome    = mkCmd <| ChangedLocation Links.Home
+  , gotoPackage = mkCmd << ChangedLocation << Links.Package
+  , gotoProfile = mkCmd <| ChangedLocation Links.Profile
+  , gotoLink    = mkCmd << ChangedLocation
+  }
+
+
 update : Msg -> Model -> (Model, Cmd Msg)
 update action model =
   case action of
+    ChangedLocation link ->
+      ( model
+      , mkCmd <| NavMsg <| Nav.ChangePage link
+      )
     NavMsg a ->
-      let (newNav, eff) = Nav.update a model.nav
+      let (newNav, eff) = Nav.update changeLink a model.nav
       in  ( { model | nav = newNav }
-          , Cmd.map NavMsg eff
+          , Cmd.map (\r -> case r of
+                             Err a -> NavMsg a
+                             Ok a  -> a
+                    ) eff
           )
     SessionMsg a ->
       let (newSession, eff) = Session.update (\_ -> Cmd.none) a model.session
@@ -142,6 +163,10 @@ update action model =
       ( { model | dimmer = d }
       , Cmd.none
       )
+
+urlUpdate : Links.Link -> Model -> (Model, Cmd Msg)
+urlUpdate link model =
+  (model, Cmd.none)
 
 view : Model -> Html Msg
 view model =
@@ -260,12 +285,26 @@ subscriptions model =
     , Sub.map SessionMsg <| Session.subscriptions
     ]
 
+parser : Navigation.Location -> Links.Link
+parser url = Debug.log ("changed url: " ++ toString url) <|
+  let path = url.pathname
+  in if path == "/"
+  then Links.Home
+  else if path == "/search"
+  then Links.Search Nothing
+  else if String.startsWith "/package/" path
+  then Links.Package <| String.dropLeft 9 path
+  else if path == "/profile"
+  then Links.Profile
+  else Links.NotFound
 
 main : Program Never
 main =
-  App.program
-     { init = init
-     , update = update
-     , view = view
+  Navigation.program
+     (Navigation.makeParser parser)
+     { init          = init
+     , update        = update
+     , urlUpdate     = urlUpdate
+     , view          = view
      , subscriptions = subscriptions
      }

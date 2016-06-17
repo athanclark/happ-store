@@ -1,5 +1,7 @@
 module Links exposing (..)
 
+import Cabal
+
 
 type Inclusion
   = All
@@ -12,4 +14,13 @@ type SearchLink
 type Link
   = Home
   | Search (Maybe SearchLink)
-  | Package String
+  | Package Cabal.PackageName
+  | Profile
+  | NotFound
+
+type alias ChangeLink a =
+  { gotoHome    : Cmd a
+  , gotoPackage : Cabal.PackageName -> Cmd a
+  , gotoProfile : Cmd a
+  , gotoLink    : Link -> Cmd a
+  }

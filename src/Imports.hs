@@ -8,4 +8,5 @@ import Server.Types       as X
 
 import Network.Wai.Trans  as X
 import Network.HTTP.Types as X
-import Web.Routes.Nested  as X
+import Web.Routes.Nested  as X hiding (json, lucid)
+import Network.Wai.ContentType.Extended as X
