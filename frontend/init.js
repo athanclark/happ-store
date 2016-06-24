@@ -33,19 +33,21 @@ nacl_factory.instantiate(function(nacl) {
     );
 
     app.ports.makeSignature.subscribe(function(xs) {
-        var ys = sign(xs.toSign);
+        var ys = sign(xs.payload);
         app.ports.madeSignature.send({
-            "threadId"  : xs.threadId,
-            "publicKey" : ys.publicKey,
-            "signature" : ys.signature
+            "threadId" : xs.threadId,
+            "payload"  : {
+                "publicKey" : ys.publicKey,
+                "signature" : ys.signature
+            }
         });
     });
 
     app.ports.openSignature.subscribe(function(xs) {
-        var ys = verify(xs.toVerify);
+        var ys = verify(xs.payload);
         app.ports.openedSignature.send({
             "threadId" : xs.threadId,
-            "verified" : ys
+            "payload" : ys
         });
     });
 });
