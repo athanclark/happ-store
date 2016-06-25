@@ -5,6 +5,8 @@ import Cmd.Extra exposing (mkCmd)
 import Session
 import Cabal
 import Links
+import Modals
+import Colors
 
 import Window
 import Navigation
@@ -14,6 +16,7 @@ import Ease
 import Task
 import Time exposing (Time, millisecond)
 import Color
+import Color.Manipulate as Color
 import String
 
 
@@ -24,6 +27,7 @@ import Html.Events     exposing (..)
 
 
 
+-- * Responsive Design Stuff
 
 type ResponsiveScreen
   = Mobile
@@ -40,6 +44,8 @@ isMobile s =
 
 
 
+-- * Main
+
 type alias Model =
   { nav             : Nav.Model
   , deviceWidth     : ResponsiveScreen
@@ -47,6 +53,7 @@ type alias Model =
   , sidebarDuration : Duration.Model Msg
   , dimmer          : Float
   , session         : Session.Model Msg
+  , modals          : Modals.Model Msg
   }
 
 type Msg
@@ -54,10 +61,11 @@ type Msg
   | ChangeScreenWidth Int
   | ChangeScreenHeight Int
   | ChangeScreenSize Window.Size
+  | ChangedLocation Links.Link
   | DurationMsg (Duration.Msg Msg)
   | ChangeDimmer Float
   | SessionMsg (Session.Msg Msg)
-  | ChangedLocation Links.Link
+  | ModalsMsg (Modals.Msg Msg)
 
 
 -- type alias Flags =
@@ -66,18 +74,21 @@ type Msg
 
 init : Links.Link -> (Model, Cmd Msg)
 init link =
-  let (newNav, navEff) = Nav.init link
+  let (newNav    , navEff)     = Nav.init link
       (newSession, sessionEff) = Session.init
+      (newModals , modalsEff)  = Modals.init
   in  ( { nav             = newNav
         , deviceWidth     = Mobile
         , height          = 0
         , dimmer          = 0
         , sidebarDuration = Duration.init
         , session         = newSession
+        , modals          = newModals
         }
       , Cmd.batch
           [ Cmd.map NavMsg navEff
           , Cmd.map SessionMsg sessionEff
+          , Cmd.map ModalsMsg modalsEff
           , Task.perform
               Debug.crash
               ChangeScreenSize
@@ -85,6 +96,7 @@ init link =
           ]
       )
 
+-- Top-level routes to different parts of the app
 changeLink : Links.ChangeLink Msg
 changeLink =
   { gotoHome    = mkCmd <| ChangedLocation Links.Home
@@ -97,10 +109,6 @@ changeLink =
 update : Msg -> Model -> (Model, Cmd Msg)
 update action model =
   case action of
-    ChangedLocation link ->
-      ( model
-      , mkCmd <| NavMsg <| Nav.ChangePage link
-      )
     NavMsg a ->
       let (newNav, eff) = Nav.update changeLink a model.nav
       in  ( { model | nav = newNav }
@@ -136,6 +144,17 @@ update action model =
                              Err x -> x
                              Ok  x -> x) eff
           )
+    ModalsMsg a ->
+      let (newModals, eff) = Modals.update a model.modals
+      in  ( { model | modals = newModals }
+          , Cmd.map (\r -> case r of
+                             Err x -> ModalsMsg x
+                             Ok  x -> x) eff
+          )
+    ChangedLocation link ->
+      ( model
+      , mkCmd <| NavMsg <| Nav.ChangePage link
+      )
     ChangeScreenHeight h ->
       ( { model | height = h }
       , Cmd.none
@@ -187,12 +206,14 @@ view model =
           then [mobileSidebar]
           else []
         ) ++
+        -- * Top-nav bar -----
         [ div [ class "ui top fixed menu"
               , style <|
                   [ ( "border-bottom"
-                    , let c' = Color.toHsl <| Color.rgb 238 130 238
-                          l = c'.lightness - (model.dimmer * (c'.lightness - 0.2))
-                          c = Color.toRgb <| Color.hsl c'.hue c'.saturation l
+                    , let c = Color.toRgb
+                           <| (\c -> Color.hsl c.hue c.saturation
+                                  <| (1 - model.dimmer * 0.8) * c.lightness )
+                           <| Color.toHsl Colors.hPurple
                       in "2px solid rgb(" ++ toString c.red ++ ","
                           ++ toString c.green ++ "," ++ toString c.blue ++ ")"
                     )
@@ -223,6 +244,7 @@ view model =
             else List.map (App.map NavMsg) (Nav.view model.nav)
               ++ [ sessionButton
                  ]
+        -- * Page Content
         , div [ class "pusher"
               , style <|
                   if model.nav.visibility > 0
@@ -251,11 +273,13 @@ view model =
                                    ]
                               else []
                           ]
+                        -- * The Packages
                         [ div [class "ui segment"]
                             [ text "Foo"
                             ]
                         ]
                     ]
+                     -- * Sidebar Dimmer
                 ] ++ if isMobile model.deviceWidth
                      then [ div [ class <| "ui dimmer"
                                     ++ if model.nav.visibility > 0
@@ -274,7 +298,8 @@ view model =
                           ]
                      else []
             ]
-        -- modals
+          -- * Modals
+        , App.map ModalsMsg <| Modals.view model.modals
         ]
 
 subscriptions : Model -> Sub Msg
@@ -283,6 +308,7 @@ subscriptions model =
     [ Window.resizes ChangeScreenSize
     , Sub.map DurationMsg <| Duration.subscriptions model.sidebarDuration
     , Sub.map SessionMsg <| Session.subscriptions
+    , Sub.map ModalsMsg <| Modals.subscriptions model.modals
     ]
 
 parser : Navigation.Location -> Links.Link

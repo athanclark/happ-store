@@ -47,7 +47,7 @@ nacl_factory.instantiate(function(nacl) {
         var ys = verify(xs.payload);
         app.ports.openedSignature.send({
             "threadId" : xs.threadId,
-            "payload" : ys
+            "payload"  : ys
         });
     });
 });

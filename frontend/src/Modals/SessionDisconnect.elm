@@ -1,9 +1,10 @@
 module Modals.SessionDisconnect exposing
   ( Model
-  , Msg (Open, Update, Close)
+  , Msg (Open, UpdateTimeLeft, Close)
   , init
   , update
   , view
+  , subscriptions
   )
 
 import Html            exposing (..)
@@ -11,23 +12,29 @@ import Html.Attributes exposing (..)
 import Html.Events     exposing (..)
 
 import Time exposing (Time)
+import Colors
+import Color
 
 
 
 type alias Model a =
-  { visibility  : Bool
-  , secondsToGo : Int
-  , cont        : Cmd a -- single threaded, no need for threads
+  { visibility : Bool
+  , timeLeft   : Int
+  , onRetry    : Cmd a
+  , onLogout   : Cmd a
   }
+
+type alias OpenParams a =
+  { timeLeft : Int
+  , onRetry  : Cmd a
+  , onLogout : Cmd a
+  }
+
 
 -- some modals may provide data on open
 type Msg a
-  = Open { delay    : Int
-         , onRetry  : Cmd a
-         , onLogout : Cmd a
-         }
-  | Update { delay : Int
-           }
+  = Open (OpenParams a)
+  | UpdateTimeLeft Int
   | Close -- only called by the continuation
   | ClickedRetry
   | ClickedLogout
@@ -37,31 +44,46 @@ type Msg a
 init : (Model a, Cmd (Msg a))
 init =
   ( { visibility  = False
-    , secondsToGo = 0
-    , cont        = Cmd.none
+    , timeLeft    = 0
+    , onRetry     = Cmd.none
+    , onLogout    = Cmd.none
     }
   , Cmd.none
   )
 
-update : Msg a -> Model a -> (Model a, Cmd (Result (Msg a) a))
+update : Msg a
+      -> Model a
+      -> (Model a, Cmd (Result (Msg a) a))
 update action model =
   case action of
-    Open { onRetry } ->
+    Open o ->
       ( { model | visibility = True
-                , cont       = onRetry
+                , timeLeft   = o.timeLeft
+                , onRetry    = o.onRetry
+                , onLogout   = o.onLogout
         }
       , Cmd.none
       )
+    UpdateTimeLeft t ->
+      ( { model | timeLeft = t }
+      , Cmd.none
+      )
     Close ->
-      ( { model | visibility = False }
+      ( { model | visibility = False
+                , timeLeft   = 0
+        }
       , Cmd.none
       )
     ClickedRetry ->
       ( model
-      , Cmd.map Ok model.cont
+      , Cmd.map Ok model.onRetry
+      )
+    ClickedLogout ->
+      ( model
+      , Cmd.map Ok model.onLogout
       )
     DecrementSecond ->
-      ( { model | secondsToGo = model.secondsToGo - 1 }
+      ( { model | timeLeft = model.timeLeft - 1 }
       , Cmd.none
       )
 
@@ -75,15 +97,21 @@ view model =
     [ div [class "header"] [text "Session Disconnected"]
     , div [class "content"]
         [ p []
-            [ text "Gonna retry in a few..."]
+            [ text <| "Finna retry in "
+                   ++ toString model.timeLeft
+                   ++ " seconds, ya dig...?" ]
         ]
     , div [class "actions"]
         [ div [class "two fluid ui inverted buttons"]
-            [ div [class "ui blue basic inverted button"]
+            [ div [ class "ui red inverted button"
+                  , onClick ClickedLogout
+                  ]
                 [ i [class "icon sign out"] []
                 , text "Logout"
                 ]
-            , div [class "ui violet basic inverted button"]
+            , div [ class "ui purple inverted button"
+                  , onClick ClickedRetry
+                  ]
                 [ i [class "icon repeat"] []
                 , text "Retry Now"
                 ]
