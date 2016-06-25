@@ -115,7 +115,15 @@ view model =
           ++ if model.visibility > 0
              then " visible active"
              else " hidden"
-      , style [("opacity", toString model.visibility)]
+      , style [ ("opacity", toString model.visibility)
+              , ( "transform"
+                , "perspective(1000px) translateZ(-"
+                  ++ toString (100 * (1 - model.visibility)) ++ "px)"
+                )
+              , ( "transform-origin"
+                , "50% 50% 0"
+                )
+              ]
       ]
     [ div [class "header"] [text "Session Disconnected"]
     , div [class "content"]
