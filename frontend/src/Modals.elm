@@ -9,6 +9,9 @@ import Html.Events     exposing (..)
 import Result
 import IntDict exposing (IntDict)
 import Cmd.Extra exposing (mkCmd)
+import Duration
+import Time exposing (Time, millisecond)
+import Ease
 
 
 type alias TaskId = Int
@@ -20,9 +23,10 @@ type ModalMsg a
   = SessDiscoMsg (SessionDisconnect.Msg (Result (Msg a) a))
 
 type alias Model a =
-  { opacity : Float
-  , taskId  : TaskId
-  , modals  : IntDict (ModalModel a)
+  { visibility : Float
+  , taskId     : TaskId
+  , modals     : IntDict (ModalModel a)
+  , duration   : Duration.Model (Msg a)
   }
 
 
@@ -36,12 +40,17 @@ type Msg a
                       }
   | ModalMsg TaskId (ModalMsg a)
   | Remove TaskId
+  | ChangeVisibility Float
+  | DurationMsg (Duration.Msg (Msg a))
+  | Open
+  | Close
 
 init : (Model a, Cmd (Msg a))
 init =
-  ( { opacity = 0
-    , taskId  = 0
-    , modals  = IntDict.empty
+  ( { visibility = 0
+    , taskId     = 0
+    , modals     = IntDict.empty
+    , duration   = Duration.init
     }
   , -- Cmd.none
     mkCmd <| SessionDisconnect { timeLeft = 10, onRetry = Cmd.none, onLogout = Cmd.none}
@@ -50,6 +59,14 @@ init =
 update : Msg a -> Model a -> (Model a, Cmd (Result (Msg a) a))
 update action model =
   case action of
+    Open ->
+      ( model
+      , mkCmd <| Err <| DurationMsg <| Duration.Forward <| \_ -> Cmd.none
+      )
+    Close ->
+      ( model
+      , mkCmd <| Err <| DurationMsg <| Duration.Reverse <| \_ -> Cmd.none
+      )
     SessionDisconnect o ->
       let (t, model') = newTaskId model
           (newSess, sessEff) = SessionDisconnect.init
@@ -57,12 +74,23 @@ update action model =
             }
           , Cmd.batch
               [ Cmd.map (Err << ModalMsg t << SessDiscoMsg) sessEff
+              , if IntDict.isEmpty model.modals
+                then mkCmd <| Err Open
+                else Cmd.none
               , mkCmd <| Err <| ModalMsg t <| SessDiscoMsg
                       <| SessionDisconnect.Open
                            { o | onRetry  = Cmd.map Ok o.onRetry
                                , onLogout = Cmd.batch
                                    [ Cmd.map Ok o.onLogout
-                                   , mkCmd <| Err <| Remove t
+                                   , Cmd.batch
+                                       [ if IntDict.isEmpty <| IntDict.remove t
+                                                                 model.modals
+                                         then mkCmd <| Err Close
+                                         else Cmd.none
+                                       , mkCmd <| Err <| ModalMsg t <| SessDiscoMsg <|
+                                           SessionDisconnect.Close <|
+                                             mkCmd <| Err <| Remove t
+                                       ]
                                    ]
                            }
               ]
@@ -86,26 +114,51 @@ update action model =
       ( { model | modals = IntDict.remove t model.modals }
       , Cmd.none
       )
+    ChangeVisibility v ->
+      ( { model | visibility = v }
+      , Cmd.none
+      )
+    DurationMsg a ->
+      let timeLength = 500 * millisecond
+          (newDur, eff) = Duration.update
+                            (\t -> mkCmd <| ChangeVisibility <|
+                                     Ease.outQuad <| t / timeLength
+                            )
+                            timeLength
+                            a
+                            model.duration
+      in  ( { model | duration = newDur }
+          , Cmd.map (\r -> case r of
+                             Err a -> Err a
+                             Ok a  -> Err a) eff
+          )
 
 
 
 view : Model a -> Html (Msg a)
 view model =
-  case IntDict.findMin model.modals of
-    Nothing -> div [class "ui dimmer modals page transition hidden"] []
-    Just (t,x) ->
-      div [class "ui dimmer modals page transition visible active"]
-        [ case x of
-            SessDiscoModel m ->
-              Html.map (ModalMsg t << SessDiscoMsg) <| SessionDisconnect.view m
-        ]
+  let mx = IntDict.findMin model.modals
+  in  div [ class <| "ui dimmer modals page transition"
+                       ++ case mx of
+                            Nothing -> " hidden"
+                            Just _  -> " visible active"
+          , style [("opacity", toString model.visibility)]
+          ] <|
+        case mx of
+          Nothing -> []
+          Just (t,x) ->
+            [ case x of
+                SessDiscoModel m ->
+                  Html.map (ModalMsg t << SessDiscoMsg) <| SessionDisconnect.view m
+            ]
 
 
 subscriptions : Model a -> Sub (Msg a)
 subscriptions model =
   Sub.batch <|
-    List.map
-      (\(t,m') -> case m' of
-                   SessDiscoModel m -> Sub.map (ModalMsg t << SessDiscoMsg)
-                                         <| SessionDisconnect.subscriptions m
-      ) <| IntDict.toList model.modals
+    ( List.map
+        (\(t,m') -> case m' of
+                     SessDiscoModel m -> Sub.map (ModalMsg t << SessDiscoMsg)
+                                           <| SessionDisconnect.subscriptions m
+        ) <| IntDict.toList model.modals
+    ) ++ [ Sub.map DurationMsg <| Duration.subscriptions model.duration ]
