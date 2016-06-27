@@ -27,6 +27,7 @@ type alias Model a =
   , taskId     : TaskId
   , modals     : IntDict (ModalModel a)
   , duration   : Duration.Model (Msg a)
+  , sessDisco  : Maybe TaskId
   }
 
 
@@ -44,6 +45,7 @@ type Msg a
   | DurationMsg (Duration.Msg (Msg a))
   | Open
   | Close
+  | UpdateTimeSessDisco Int
 
 init : (Model a, Cmd (Msg a))
 init =
@@ -51,9 +53,9 @@ init =
     , taskId     = 0
     , modals     = IntDict.empty
     , duration   = Duration.init
+    , sessDisco  = Nothing
     }
-  , -- Cmd.none
-    mkCmd <| SessionDisconnect { timeLeft = 10, onRetry = Cmd.none, onLogout = Cmd.none}
+  , Cmd.none
   )
 
 update : Msg a -> Model a -> (Model a, Cmd (Result (Msg a) a))
@@ -68,33 +70,41 @@ update action model =
       , mkCmd <| Err <| DurationMsg <| Duration.Reverse <| \_ -> Cmd.none
       )
     SessionDisconnect o ->
-      let (t, model') = newTaskId model
-          (newSess, sessEff) = SessionDisconnect.init
-      in  ( { model' | modals = IntDict.insert t (SessDiscoModel newSess) model'.modals
-            }
-          , Cmd.batch
-              [ Cmd.map (Err << ModalMsg t << SessDiscoMsg) sessEff
-              , if IntDict.isEmpty model.modals
-                then mkCmd <| Err Open
-                else Cmd.none
-              , mkCmd <| Err <| ModalMsg t <| SessDiscoMsg
-                      <| SessionDisconnect.Open
-                           { o | onRetry  = Cmd.map Ok o.onRetry
-                               , onLogout = Cmd.batch
-                                   [ Cmd.map Ok o.onLogout
-                                   , Cmd.batch
-                                       [ if IntDict.isEmpty <| IntDict.remove t
-                                                                 model.modals
-                                         then mkCmd <| Err Close
-                                         else Cmd.none
-                                       , mkCmd <| Err <| ModalMsg t <| SessDiscoMsg <|
-                                           SessionDisconnect.Close <|
-                                             mkCmd <| Err <| Remove t
-                                       ]
-                                   ]
-                           }
-              ]
+      case model.sessDisco of
+        Just t ->
+          ( model
+          , mkCmd <| Err <| ModalMsg t <| SessDiscoMsg
+                  <| SessionDisconnect.UpdateTimeLeft o.timeLeft
           )
+        Nothing ->
+          let (t, model') = newTaskId model
+              (newSess, sessEff) = SessionDisconnect.init
+          in  ( { model' | modals = IntDict.insert t (SessDiscoModel newSess) model'.modals
+                         , sessDisco = Just t
+                }
+              , Cmd.batch
+                  [ Cmd.map (Err << ModalMsg t << SessDiscoMsg) sessEff
+                  , if IntDict.isEmpty model.modals
+                    then mkCmd <| Err Open -- FIXME: open parent from modal impl? :\
+                    else Cmd.none
+                  , mkCmd <| Err <| ModalMsg t <| SessDiscoMsg
+                          <| SessionDisconnect.Open
+                               { o | onRetry  = Cmd.map Ok o.onRetry
+                                   , onLogout = Cmd.batch
+                                       [ Cmd.map Ok o.onLogout
+                                       , Cmd.batch
+                                           [ if IntDict.isEmpty <| IntDict.remove t
+                                                                     model.modals
+                                             then mkCmd <| Err Close
+                                             else Cmd.none
+                                           , mkCmd <| Err <| ModalMsg t <| SessDiscoMsg <|
+                                               SessionDisconnect.Close <|
+                                                 mkCmd <| Err <| Remove t
+                                           ]
+                                       ]
+                               }
+                  ]
+              )
     ModalMsg t a ->
       case IntDict.get t model.modals of
         Nothing -> (model, Cmd.none)
@@ -111,7 +121,11 @@ update action model =
                   )
            -- _ -> (model, Cmd.none)
     Remove t ->
-      ( { model | modals = IntDict.remove t model.modals }
+      ( { model | modals = IntDict.remove t model.modals
+                , sessDisco = case model.sessDisco of
+                                Nothing -> Nothing
+                                Just t' -> if t == t' then Nothing else Just t'
+        }
       , Cmd.none
       )
     ChangeVisibility v ->
@@ -132,6 +146,18 @@ update action model =
                              Err a -> Err a
                              Ok a  -> Err a) eff
           )
+    UpdateTimeSessDisco l ->
+      ( model
+      , Cmd.batch <|
+          List.map
+            (\(t,v) ->
+              case v of
+                SessDiscoModel _ ->
+                  mkCmd <| Err <| ModalMsg t <| SessDiscoMsg
+                        <| SessionDisconnect.UpdateTimeLeft l
+               -- _ -> Cmd.none
+            ) <| IntDict.toList model.modals
+      )
 
 
 

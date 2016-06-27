@@ -1,10 +1,11 @@
 module Session exposing
   ( Model
-  , Msg (Login, GET)
+  , Msg (Login, Logout, GET, EveryMsg)
   , init
   , update
   , subscriptions
   , viewMenuItem
+  , nextSessionTick
   )
 
 import Session.Data  as Data
@@ -59,11 +60,11 @@ type alias Model a =
   }
 
 nextSessionTick : EveryState -> Time -> Time
-nextSessionTick e soFar =
+nextSessionTick e soFar = Debug.log "Time waiting: " <|
   let standard = Time.second * 5
   in if e.lastResponse
   then standard
-  else Debug.log "waiting for" <| standard + (2 * soFar)
+  else standard + (2 * soFar)
 
 type LoginError
   = LoginMalicious
@@ -192,21 +193,40 @@ update onPingFail action model =
       )
     PingSessionResponse eResponse ->
       case eResponse of
-        Err e -> (model, Cmd.map Ok <| onPingFail e)
+        Err e -> ( model
+                 , Cmd.batch
+                     [ Cmd.map Ok <| onPingFail e
+                     , mkCmd <| Err <| EveryMsg <| Every.Adjust
+                         { reset = False
+                         , modify = \_ -> { lastResponse = False }
+                         }
+                     ]
+                 )
         Ok signedResp ->
           case model.session of
             Just s' -> -- TODO: Session warning messages
               ( model
               , mkCmd <| Err <| DataMsg <| Data.Open signedResp <| \mResponse ->
                 case mResponse of
-                  Nothing -> Cmd.map Ok <| onPingFail <| SessionMalicious
+                  Nothing -> Cmd.batch
+                               [ Cmd.map Ok <| onPingFail <| SessionMalicious
+                               , mkCmd <| Err <| EveryMsg <| Every.Adjust
+                                   { reset = False
+                                   , modify = \_ -> { lastResponse = False }
+                                   }
+                               ]
                   Just response ->
-                    if response /= "pong"
-                    then Cmd.map Ok <| onPingFail <| SessionMalicious
+                    if response /= JsonE.encode 0 (JsonE.string "pong")
+                    then Cmd.batch
+                           [ Cmd.map Ok <| onPingFail <| SessionMalicious
+                           , mkCmd <| Err <| EveryMsg <| Every.Adjust
+                               { reset = False
+                               , modify = \_ -> { lastResponse = False }
+                               }
+                           ]
                     else mkCmd <| Err <| EveryMsg <| Every.Adjust
                            { reset = True -- was sucessful
-                           , modify = \_ -> { lastResponse = True
-                                            }
+                           , modify = \_ -> { lastResponse = True }
                            }
               )
             Nothing ->

@@ -12,7 +12,9 @@ import Window
 import Navigation
 import Duration
 import Ease
+import Every
 
+import Process
 import Task
 import Time exposing (Time, millisecond)
 import Color
@@ -118,7 +120,47 @@ update action model =
                     ) eff
           )
     SessionMsg a ->
-      let (newSession, eff) = Session.update (\_ -> Cmd.none) a model.session
+      let (newSession, eff) = Session.update
+                                (\e ->
+                                   Cmd.batch
+                                     [ mkCmd <| ModalsMsg
+                                             <| Modals.SessionDisconnect
+                                                  { timeLeft = round
+                                                      ( Every.waitingFor
+                                                          Session.nextSessionTick
+                                                          model.session.everyState
+                                                          / Time.second
+                                                      )
+                                                  , onRetry =
+                                                      Cmd.batch
+                                                        [ mkCmd
+                                                            <| SessionMsg
+                                                            <| Session.EveryMsg
+                                                            <| Every.Start identity
+                                                        , mkCmd
+                                                            <| ModalsMsg
+                                                            <| Modals.UpdateTimeSessDisco
+                                                            <| round
+                                                            <| Every.waitingFor
+                                                                 Session.nextSessionTick
+                                                                 model.session.everyState
+                                                             / Time.second
+                                                        ]
+                                                  , onLogout = mkCmd
+                                                      <| SessionMsg
+                                                      <| Session.Logout
+                                                  }
+                                     ]
+                                )
+                                --( mkCmd <| ModalsMsg
+                                --        <| Modals.UpdateTimeSessDisco
+                                --        <| round
+                                --        <| ( Every.waitingFor
+                                --               Session.nextSessionTick
+                                --               model.session.everyState
+                                --           ) / Time.second
+                                --)
+                                a model.session
       in  ( { model | session = newSession }
           , Cmd.map (\r -> case r of
                              Err x -> SessionMsg x

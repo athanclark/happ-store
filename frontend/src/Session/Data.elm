@@ -14,6 +14,8 @@ port module Session.Data exposing
 Note that this module should be used as a singleton
 -}
 
+import Session.Types exposing (..)
+
 import Json.Encode as JsonE
 import Json.Decode as JsonD exposing (Decoder, (:=))
 import Cmd.Extra exposing (mkCmd)
@@ -23,7 +25,6 @@ import Threading exposing (Threaded)
 
 
 type alias ThreadId = Int
-type alias Hex = String
 
 -- Ports
 

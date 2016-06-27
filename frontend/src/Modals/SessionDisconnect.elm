@@ -1,6 +1,6 @@
 module Modals.SessionDisconnect exposing
   ( Model
-  , Msg (Open, UpdateTimeLeft, Close, ChangeVisibility)
+  , Msg (Open, UpdateTimeLeft, Close)
   , init
   , update
   , view
@@ -11,7 +11,6 @@ import Html            exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events     exposing (..)
 
-import Time exposing (Time)
 import Colors
 import Color
 import Duration
@@ -46,7 +45,6 @@ type Msg a
   | ChangeVisibility Float
   | DurationMsg (Duration.Msg a)
 
--- TODO: Change to Maybe?
 init : (Model a, Cmd (Msg a))
 init =
   ( { visibility  = 0
