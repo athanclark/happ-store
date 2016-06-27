@@ -93,11 +93,11 @@ entry p m db ekgId env = do
     threadDelay (5 * secondPico)
 
   -- fetcher
-  shallowCountRef <- newIORef (0 :: Int)
+  fetchCountRef <- newIORef (1 :: Int)
   forkIO . forever $ do
-    shallowCount <- readIORef shallowCountRef
-    updateFetched env $ shallowCount `mod` 24 == 0
-    writeIORef shallowCountRef $ (shallowCount `mod` 24) + 1
+    fetchCount <- readIORef fetchCountRef
+    updateFetched env $ fetchCount `mod` 4 == 0 -- every 4 hours
+    writeIORef fetchCountRef $ (fetchCount `mod` 4) + 1
     threadDelay hour
 
   -- main app

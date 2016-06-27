@@ -70,7 +70,7 @@ masterPage =
     scriptAssets :: MonadApp m => HtmlT m ()
     scriptAssets = do
       hostname <- envAuthority <$> lift ask
-      isProd <- envProduction <$> lift ask
+      isProd   <- envProduction <$> lift ask
       if isProd
       then hoist (`runAbsoluteUrlT` cloudflareCdn) $ do
              jQuery <- lift (toLocation JQueryCdn)

@@ -44,7 +44,7 @@ checkLoginRequest x@(SignedRequest sId _) = do
   let f :: MonadApp m => LoginCredentials -> m T.Text
       f cs = pure "login success!" -- TODO: lookup user, etc.
   sessionCache <- envSession <$> ask
-  liftIO $ TM.insert sId (UserId 1) sessionCache -- FIXME
+  liftIO $ TM.insert sId (UserId 1) sessionCache -- FIXME: should fail
   withSession f x -- redundantly touches sId, meh
 
 

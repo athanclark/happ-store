@@ -163,7 +163,7 @@ updateFetched env deep = do
                           `HS.union` fetchedNeedsUpdate (specific fetched)
   when (diffPackages /= HS.empty) $
     let go :: PackageName -> IO ()
-        go p = bracket_ (waitQSem . queueFetch $ envQueues env)
+        go p = bracket_ (waitQSem   . queueFetch $ envQueues env)
                         (signalQSem . queueFetch $ envQueues env) $ do
           newSpecific <- updateSpecific env p count (HS.size diffPackages) . specific
                      =<< stToIO (readSTRef fetchedRef)
