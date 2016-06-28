@@ -105,10 +105,9 @@ entry p m db ekgId env = do
   where
     server'  = gzip def
              . (if (envVerbose env) then logStdoutDev else id)
-             . runMiddlewareT runAppT' server
+             . runMiddlewareT (`runAppM` env) server
     server   = securityLayer
              . staticLayer
              . contentLayer
-    runAppT' = flip runAppT env
 
 

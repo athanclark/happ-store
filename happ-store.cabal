@@ -86,11 +86,12 @@ Library
                       , utf8-string
                       , wai
                       , wai-extra
-                      , wai-transformers >= 0.0.5
+                      , wai-transformers >= 0.0.6
                       , wai-middleware-verbs >= 0.3.0
                       , wai-middleware-content-type
                       , wai-websockets
                       , webpage
+                      , websockets
 
 Executable happ-store
   Default-Language:     Haskell2010
@@ -168,13 +169,15 @@ Executable happ-store
                       , time
                       , timemap
                       , urlpath
-                      , unordered-containers >= 0.2
+                      , unordered-containers
                       , utf8-string
                       , warp
                       , wai-extra
                       , wai-transformers
                       , wai-middleware-content-type
+                      , wai-websockets
                       , webpage
+                      , websockets
                       , yaml
 
 Test-Suite spec

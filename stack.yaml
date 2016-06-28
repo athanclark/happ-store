@@ -75,7 +75,7 @@ extra-deps:
   - hslua-0.4.1
   - zlib-enum-0.2.3.1
   - monads-tf-0.1.0.3
-  - wai-transformers-0.0.5
+  - wai-transformers-0.0.6
   - wai-middleware-verbs-0.3.0
   - rose-trees-0.0.4.3
   - timemap-0.0.4

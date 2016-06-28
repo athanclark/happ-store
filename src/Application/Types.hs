@@ -139,10 +139,10 @@ emptyEnv = do
 
 -- * Application Effects Stack
 
-type AppM a = LoggingT (ReaderT Env IO) a
+type AppM = LoggingT (ReaderT Env IO)
 
-runAppT :: AppM a -> Env -> IO a
-runAppT = runReaderT . runStderrLoggingT
+runAppM :: AppM a -> Env -> IO a
+runAppM = runReaderT . runStderrLoggingT
 
 type AppTemplateT m = AbsoluteUrlT m
 
