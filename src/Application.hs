@@ -30,12 +30,12 @@ authorize :: ( MonadThrow m
 authorize req ss | null ss   = return ()
                  | otherwise = throwM NeedsAuth
 
-securityLayer :: MonadApp m => MiddlewareT m
+securityLayer :: MiddlewareT AppM
 securityLayer app req resp = do
   extractAuth authorize req routes
   app req resp
 
-contentLayer :: MonadApp m => MiddlewareT m
+contentLayer :: MiddlewareT AppM
 contentLayer = route routes
 
 staticLayer :: MonadApp m => MiddlewareT m

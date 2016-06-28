@@ -13,8 +13,7 @@ import qualified Data.Text as T
 
 
 
-routes :: ( MonadApp m
-          ) => HandlerT (MiddlewareT m) sec m ()
+routes :: HandlerT (MiddlewareT AppM) sec AppM ()
 routes = do
   matchHere (action homeHandle)
   matchGroup (l_ "packages" </> o_) $ do

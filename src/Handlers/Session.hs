@@ -25,11 +25,10 @@ import Control.Monad.Reader
 
 
 
-sessionHandle :: MonadApp m
-              => MiddlewareT m
+sessionHandle :: MiddlewareT AppM
 sessionHandle app req respond =
-  let handle :: MonadApp m => MiddlewareT m
-      handle = action $
+  let handleHTTP :: MonadApp m => MiddlewareT m
+      handleHTTP = action $
         post $ do
           let f :: MonadApp m => T.Text -> m T.Text
               f x = if x == "ping"
@@ -40,6 +39,7 @@ sessionHandle app req respond =
                   Nothing -> throwM BadSessionFormat
                   Just x  -> withSession f x
           json y
+
       handleWS :: MiddlewareT AppM
       handleWS app req resp = do
         env <- ask
@@ -48,6 +48,8 @@ sessionHandle app req respond =
                    conn <- liftIO $ acceptRequest pendingConn
                    liftIO $ sendTextData conn ("test" :: T.Text)
         ws app req resp
+
+      handle = handleHTTP . handleWS
   in  (handle `catchMiddlewareT` errorCatcher) app req respond
 
 
