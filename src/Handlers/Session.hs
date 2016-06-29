@@ -13,10 +13,13 @@ import Handlers.App
 import Session
 import Imports
 
-import qualified Data.Text as T
-import qualified Data.Text.Lazy as LT
+import qualified Data.Text              as T
+import qualified Data.Text.Encoding     as T
+import qualified Data.Text.Lazy         as LT
+import qualified Data.ByteString.Base16 as BS16
 import Data.Aeson as A hiding (json)
 import Network.WebSockets
+import Crypto.Saltine.Class as NaCl
 
 import Data.Monoid
 import Control.Monad.IO.Class (liftIO)
@@ -45,11 +48,14 @@ sessionHandle app req respond =
         env <- ask
         let ws = websocketsOrT (`runAppM` env) defaultConnectionOptions
                $ \pendingConn -> do
-                   conn <- liftIO $ acceptRequest pendingConn
-                   liftIO $ sendTextData conn ("test" :: T.Text)
+                   pk <- T.decodeUtf8 . BS16.encode . NaCl.encode . envPublicKey <$> ask
+                   liftIO $ do
+                     conn <- acceptRequest pendingConn
+                     sendTextData conn pk
+                     () <$ receiveDataMessage conn
         ws app req resp
 
-      handle = handleHTTP . handleWS
+      handle = handleWS . handleHTTP
   in  (handle `catchMiddlewareT` errorCatcher) app req respond
 
 

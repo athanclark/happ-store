@@ -90,10 +90,11 @@ data Env = Env
   , envDatabase   :: AcidState Database
   , envFetched    :: STRef RealWorld Fetched
   , envQueues     :: Queues
+  , envTLS        :: Bool
   }
 
 instance Show Env where
-  show (Env a c s p v _ _ _ _ _ _ _) =
+  show (Env a c s p v _ _ _ _ _ _ _ t) =
     "Env {envAuthority = " ++ show a ++ ", envCwd = "
                            ++ show c ++ ", envStatic = "
                            ++ show s ++ ", envProduction = "
@@ -104,11 +105,13 @@ instance Show Env where
                                          \ envManager = <manager>,\
                                          \ envDatabase = <database>,\
                                          \ envFetched = <fetched>,\
-                                         \ envQueues = <queues>}"
+                                         \ envQueues = <queues>,\
+                                         \ envTLS = "
+                           ++ show t ++ "}"
 
 instance Eq Env where
-  (Env a1 c1 s1 p1 v1 _ _ _ _ _ _ _) == (Env a2 c2 s2 p2 v2 _ _ _ _ _ _ _) =
-    a1 == a2 && c1 == c2 && s1 == s2 && p1 == p2 && v1 == v2
+  (Env a1 c1 s1 p1 v1 _ _ _ _ _ _ _ t1) == (Env a2 c2 s2 p2 v2 _ _ _ _ _ _ _ t2) =
+    a1 == a2 && c1 == c2 && s1 == s2 && p1 == p2 && v1 == v2 && t1 == t2
 
 -- | A really terrible environment value that should only be used with testing
 emptyEnv :: IO Env
@@ -134,6 +137,7 @@ emptyEnv = do
            , envDatabase   = db
            , envFetched    = f
            , envQueues     = Queues lf lh lj
+           , envTLS        = False
            }
 
 

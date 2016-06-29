@@ -9,6 +9,7 @@ module Templates.Master where
 import Imports hiding (FileExt (..))
 
 import qualified Data.Text               as T
+import qualified Data.Text.Lazy          as LT
 import qualified Data.Text.Lazy.IO       as LT
 import qualified Data.Text.Lazy.Encoding as LT
 import qualified Data.ByteString.Lazy    as LBS
@@ -98,11 +99,13 @@ masterPage =
       hoist (`runAbsoluteUrlT` hostname) $ do
         app <- lift (toLocation AppFrontend)
         deploy JavaScript Remote app
-      pk <- (LBS.fromStrict . BS16.encode . NaCl.encode . envPublicKey) <$> lift ask
-      let serverKey = "\nvar serverPk_ = \"" <> LT.decodeUtf8 pk <> "\";\n"
+      isTLS <- envTLS <$> lift ask
+      let host_ =
+            let hostname' = hostname { urlScheme = if isTLS then "wss" else "ws" }
+            in  "\nvar host_ = \"" <> LT.pack (showUrlAuthority hostname') <> "\";\n"
       cwd     <- envCwd <$> lift ask
       initElm <- liftIO . LT.readFile $ cwd ++ "/frontend/init.js"
-      deploy JavaScript Inline $ serverKey <> initElm
+      deploy JavaScript Inline $ host_ <> initElm
 
     styleAssets :: MonadApp m => HtmlT m ()
     styleAssets = do

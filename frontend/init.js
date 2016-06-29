@@ -1,7 +1,7 @@
 
+// NOTE: Depends on there being a `host_` variable defined
+
 nacl_factory.instantiate(function(nacl) {
-    var serverPk = nacl.from_hex(serverPk_);
-    var keys = nacl.crypto_sign_keypair();
 
     // String -> { publicKey : Hex, signature : Hex }
     function sign(message_) {
@@ -28,9 +28,27 @@ nacl_factory.instantiate(function(nacl) {
         }
     }
 
+    // () -> { publicKey : Hex, secretKey : Hex }
+    function makeKeypair() {
+        var keys = nacl.crypto_sign_keypair();
+        return {
+            "publicKey" : nacl.to_hex(keys.signPk),
+            "secretKey" : nacl.to_hex(keys.signSk)
+        }
+    }
 
-    var app = Elm.Main.fullscreen(
-    );
+
+    var app = Elm.Main.fullscreen({
+        "host" : host_
+    });
+
+    app.ports.makeKeypair.subscribe(function(xs) {
+        var ks = makeKeypair();
+        app.ports.madeKeypair.send({
+            "threadId" : xs.threadId,
+            "payload"  : ks
+        });
+    });
 
     app.ports.makeSignature.subscribe(function(xs) {
         var ys = sign(xs.payload);

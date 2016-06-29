@@ -47,6 +47,7 @@ data AppOpts = AppOpts
   , limitFetch :: Maybe Int
   , limitHtml  :: Maybe Int
   , limitJson  :: Maybe Int
+  , overTLS    :: Maybe Bool
   } deriving (Show, Eq, Generic)
 
 instance Monoid AppOpts where
@@ -60,9 +61,10 @@ instance Monoid AppOpts where
                    , limitFetch = Nothing
                    , limitHtml  = Nothing
                    , limitJson  = Nothing
+                   , overTLS    = Nothing
                    }
-  mappend (AppOpts p1 m1 h1 c1 s1 pr1 v1 lf1 lh1 lj1)
-          (AppOpts p2 m2 h2 c2 s2 pr2 v2 lf2 lh2 lj2) =
+  mappend (AppOpts p1 m1 h1 c1 s1 pr1 v1 lf1 lh1 lj1 o1)
+          (AppOpts p2 m2 h2 c2 s2 pr2 v2 lf2 lh2 lj2 o2) =
     AppOpts { port       = getLast $ Last p1 <> Last p2
             , monitor    = getLast $ Last m1 <> Last m2
             , host       = getLast $ Last h1 <> Last h2
@@ -73,6 +75,7 @@ instance Monoid AppOpts where
             , limitFetch = getLast $ Last lf1 <> Last lf2
             , limitHtml  = getLast $ Last lh1 <> Last lh2
             , limitJson  = getLast $ Last lj1 <> Last lj2
+            , overTLS    = getAny <$> (Any <$> o1) <> (Any <$> o2)
             }
 
 instance Y.ToJSON AppOpts where
@@ -92,6 +95,7 @@ instance Default AppOpts where
                 , limitFetch = Just 100
                 , limitHtml  = Just 100
                 , limitJson  = Just 1000
+                , overTLS    = Just False
                 }
 
 appOpts :: Parser AppOpts
@@ -141,6 +145,9 @@ appOpts = AppOpts
         ( long "limit-json"
        <> metavar "LIMJSON"
        <> help "max number of active concurrent json requests - DEF: 1000" ))
+  <*> optional ( switch
+        ( long "over-tls"
+       <> help "assume a SSL/TLS reverse proxy between client and this server" ))
 
 -- | Command-line options
 data App = App
@@ -193,6 +200,7 @@ getEnv = do
                      Nothing
                      Nothing
                      Nothing
+                     Nothing
       config = dirs <> def <> yamlConfig <> options commandOpts
 
   cwdDir       <- toFilePath <$> parseAbsDir (fromJust $ cwd config)
@@ -229,7 +237,8 @@ appOptsToEnv (AppOpts (Just p)
                       (Just v)
                       (Just lf)
                       (Just lh)
-                      (Just lj)) = do
+                      (Just lj)
+                      (Just o)) = do
   t       <- atomically TM.newTimeMap
   (sk,pk) <- NaCl.newKeypair
   m       <- newManager tlsManagerSettings
@@ -237,7 +246,13 @@ appOptsToEnv (AppOpts (Just p)
   lf'     <- newQSem lf
   lh'     <- newQSem lh
   lj'     <- newQSem lj
-  let auth = UrlAuthority "http" True Nothing h $ p <$ guard (p /= 80)
+  let auth = UrlAuthority
+               { urlScheme  = if o then "https" else "http"
+               , urlSlashes = True
+               , urlAuth    = Nothing
+               , urlHost    = h
+               , urlPort    = p <$ guard (p /= 80)
+               }
   pure $ \db -> Env
          { envAuthority  = auth
          , envCwd        = c
@@ -251,5 +266,6 @@ appOptsToEnv (AppOpts (Just p)
          , envDatabase   = db
          , envFetched    = f
          , envQueues     = Queues lf' lh' lj'
+         , envTLS        = o
          }
 appOptsToEnv os = error $ "AppOpts improperly formatted: " ++ show os

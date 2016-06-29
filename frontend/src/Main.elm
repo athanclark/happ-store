@@ -13,6 +13,7 @@ import Navigation
 import Duration
 import Ease
 import Every
+import WebSocket
 
 import Process
 import Task
@@ -70,12 +71,12 @@ type Msg
   | ModalsMsg (Modals.Msg Msg)
 
 
--- type alias Flags =
---   { privateKey : 
---   }
+type alias Flags =
+  { host : String
+  }
 
-init : Links.Link -> (Model, Cmd Msg)
-init link =
+init : Flags -> Links.Link -> (Model, Cmd Msg)
+init flags link =
   let (newNav    , navEff)     = Nav.init link
       (newSession, sessionEff) = Session.init
       (newModals , modalsEff)  = Modals.init
@@ -120,47 +121,25 @@ update action model =
                     ) eff
           )
     SessionMsg a ->
-      let (newSession, eff) = Session.update
-                                (\e ->
-                                   Cmd.batch
-                                     [ mkCmd <| ModalsMsg
-                                             <| Modals.SessionDisconnect
-                                                  { timeLeft = round
-                                                      ( Every.waitingFor
-                                                          Session.nextSessionTick
-                                                          model.session.everyState
-                                                          / Time.second
-                                                      )
-                                                  , onRetry =
-                                                      Cmd.batch
-                                                        [ mkCmd
-                                                            <| SessionMsg
-                                                            <| Session.EveryMsg
-                                                            <| Every.Start identity
-                                                        , mkCmd
-                                                            <| ModalsMsg
-                                                            <| Modals.UpdateTimeSessDisco
-                                                            <| round
-                                                            <| Every.waitingFor
-                                                                 Session.nextSessionTick
-                                                                 model.session.everyState
-                                                             / Time.second
-                                                        ]
-                                                  , onLogout = mkCmd
-                                                      <| SessionMsg
-                                                      <| Session.Logout
-                                                  }
-                                     ]
-                                )
-                                --( mkCmd <| ModalsMsg
-                                --        <| Modals.UpdateTimeSessDisco
-                                --        <| round
-                                --        <| ( Every.waitingFor
-                                --               Session.nextSessionTick
-                                --               model.session.everyState
-                                --           ) / Time.second
-                                --)
-                                a model.session
+      let onError e = Cmd.batch
+            [ mkCmd <| ModalsMsg <| Modals.SessionDisconnect
+                { timeLeft = round <| Every.waitingFor
+                                        Session.nextSessionTick
+                                        model.session.everyState
+                                    / Time.second
+                , onRetry = Cmd.batch
+                    [ mkCmd <| SessionMsg <| Session.EveryMsg
+                            <| Every.Start identity
+                    , mkCmd <| ModalsMsg <| Modals.UpdateTimeSessDisco
+                            <| round <| Every.waitingFor
+                                          Session.nextSessionTick
+                                          model.session.everyState
+                                      / Time.second
+                    ]
+                , onLogout = mkCmd <| SessionMsg <| Session.Logout
+                }
+            ]
+          (newSession, eff) = Session.update onError a model.session
       in  ( { model | session = newSession }
           , Cmd.map (\r -> case r of
                              Err x -> SessionMsg x
@@ -224,6 +203,7 @@ update action model =
       ( { model | dimmer = d }
       , Cmd.none
       )
+
 
 urlUpdate : Links.Link -> Model -> (Model, Cmd Msg)
 urlUpdate link model =
@@ -366,9 +346,9 @@ parser url = Debug.log ("changed url: " ++ toString url) <|
   then Links.Profile
   else Links.NotFound
 
-main : Program Never
+main : Program Flags
 main =
-  Navigation.program
+  Navigation.programWithFlags
      (Navigation.makeParser parser)
      { init          = init
      , update        = update

@@ -9,6 +9,7 @@ module Session exposing
   )
 
 import Session.Data  as Data
+import Session.Keys  as Keys
 import User
 
 import Html            exposing (..)
@@ -22,6 +23,7 @@ import Json.Encode as JsonE
 import Task exposing (Task)
 import Task.Extra as Task
 import Time exposing (Time)
+import WebSocket
 import Cmd.Extra exposing (mkCmd)
 
 
@@ -93,6 +95,7 @@ type Msg a
   | UpdateSession Session
   | DataMsg  (Data.Msg (Result (Msg a) a))
   | EveryMsg (Every.Msg EveryState)
+  | GotWebSocketMessage String
   -- unpacks the `data` component
 
 init : (Model a, Cmd (Msg a))
@@ -291,11 +294,18 @@ update onPingFail action model =
       ( { model | session = Just s }
       , Cmd.none
       )
+    GotWebSocketMessage m -> Debug.log m
+      ( model
+      , Cmd.none
+      )
 
 
 subscriptions : Sub (Msg a)
 subscriptions =
-  Sub.map DataMsg  Data.subscriptions
+  Sub.batch
+    [ Sub.map DataMsg Data.subscriptions
+    , WebSocket.listen "ws://localhost:3000/session" GotWebSocketMessage
+    ]
 
 
 -- login button
